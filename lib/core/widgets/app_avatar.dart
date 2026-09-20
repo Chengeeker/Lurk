@@ -1,5 +1,6 @@
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+
 import '../constants/tieba_constants.dart';
 
 class AppAvatar extends StatelessWidget {
@@ -8,6 +9,7 @@ class AppAvatar extends StatelessWidget {
   final double size;
   final double radius;
   final VoidCallback? onTap;
+  final String? semanticLabel;
 
   const AppAvatar({
     super.key,
@@ -16,6 +18,7 @@ class AppAvatar extends StatelessWidget {
     this.size = 40,
     this.radius = 20,
     this.onTap,
+    this.semanticLabel,
   });
 
   @override
@@ -39,11 +42,19 @@ class AppAvatar extends StatelessWidget {
           loadStateChanged: (state) {
             switch (state.extendedImageLoadState) {
               case LoadState.loading:
-                return Icon(Icons.person_rounded, size: size * 0.6, color: colorScheme.outlineVariant);
+                return Icon(
+                  Icons.person_rounded,
+                  size: size * 0.6,
+                  color: colorScheme.outlineVariant,
+                );
               case LoadState.completed:
                 return null;
               case LoadState.failed:
-                return Icon(Icons.person_rounded, size: size * 0.6, color: colorScheme.outlineVariant);
+                return Icon(
+                  Icons.person_rounded,
+                  size: size * 0.6,
+                  color: colorScheme.outlineVariant,
+                );
             }
           },
         ),
@@ -51,7 +62,24 @@ class AppAvatar extends StatelessWidget {
     );
 
     if (onTap != null) {
-      avatar = GestureDetector(onTap: onTap, child: avatar);
+      avatar = Semantics(
+        button: true,
+        label: semanticLabel ?? '查看头像',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(radius),
+            onTap: onTap,
+            child: avatar,
+          ),
+        ),
+      );
+    } else {
+      avatar = Semantics(
+        image: true,
+        label: semanticLabel ?? '头像',
+        child: avatar,
+      );
     }
 
     return avatar;

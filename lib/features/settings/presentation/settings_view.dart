@@ -10,6 +10,7 @@ import '../../../core/utils/app_dialog.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../core/utils/spring_page_route.dart';
+import '../../../core/widgets/app_section_card.dart';
 import '../../auth/presentation/login_page.dart';
 import '../../profile/data/profile_repository.dart';
 import 'block_settings_page.dart';
@@ -327,142 +328,144 @@ class SettingsView extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // 1. App Icon
-            Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: Image.asset(
-                  'assets/icons/app_icon.png',
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.cover,
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // 1. App Icon
+              Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.asset(
+                    'assets/icons/app_icon.png',
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
+              const SizedBox(height: 14),
 
-            // 2. Centered Title & Version Tag
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Text(
-                  'Lurk',
-                  style: TextStyle(
-                    fontSize: 21,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildVersionBadge(colorScheme),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '纯原生 Material You 极简社区客户端',
-              style: TextStyle(
-                fontSize: 13,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            const SizedBox(height: 14),
-
-            // 3. Feature Highlights
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildAboutItem(
-                  Icons.palette_outlined,
-                  '100% 纯原生 Flutter 与 MD3 动态主题配色',
-                  colorScheme,
-                ),
-                const SizedBox(height: 8),
-                _buildAboutItem(
-                  Icons.sync_rounded,
-                  '原生接口直连、动态板块与社区签到',
-                  colorScheme,
-                ),
-                const SizedBox(height: 8),
-                _buildAboutItem(
-                  Icons.photo_library_outlined,
-                  '自适应九宫格、全高清原图与丰富社区表情',
-                  colorScheme,
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-
-            // 4. GitHub Project Link
-            InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () async {
-                final uri = Uri.parse('https://github.com/Chengeeker/Lurk');
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.5,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: colorScheme.outlineVariant.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.code_rounded,
-                      color: colorScheme.primary,
-                      size: 20,
+              // 2. Centered Title & Version Tag
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Lurk',
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.2,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'GitHub 开源地址',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            'github.com/Chengeeker/Lurk',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+                  ),
+                  const SizedBox(width: 8),
+                  _buildVersionBadge(colorScheme),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '纯原生 Material You 极简社区客户端',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 14),
+
+              // 3. Feature Highlights
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAboutItem(
+                    Icons.palette_outlined,
+                    '100% 纯原生 Flutter 与 MD3 动态主题配色',
+                    colorScheme,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildAboutItem(
+                    Icons.sync_rounded,
+                    '原生接口直连、动态板块与社区签到',
+                    colorScheme,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildAboutItem(
+                    Icons.photo_library_outlined,
+                    '自适应九宫格、全高清原图与丰富社区表情',
+                    colorScheme,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+
+              // 4. GitHub Project Link
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () async {
+                  final uri = Uri.parse('https://github.com/Chengeeker/Lurk');
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.code_rounded,
+                        color: colorScheme.primary,
+                        size: 20,
                       ),
-                    ),
-                    Icon(
-                      Icons.open_in_new_rounded,
-                      size: 16,
-                      color: colorScheme.primary,
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'GitHub 开源地址',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'github.com/Chengeeker/Lurk',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.open_in_new_rounded,
+                        size: 16,
+                        color: colorScheme.primary,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           FilledButton(
@@ -511,17 +514,7 @@ class SettingsView extends ConsumerWidget {
               ),
             ),
           ),
-          Card(
-            elevation: 0,
-            clipBehavior: Clip.antiAlias,
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.08),
-                width: 0.8,
-              ),
-            ),
+          AppSectionCard(
             child: Column(
               children: [
                 ListTile(
@@ -660,17 +653,7 @@ class SettingsView extends ConsumerWidget {
               ),
             ),
           ),
-          Card(
-            elevation: 0,
-            clipBehavior: Clip.antiAlias,
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.08),
-                width: 0.8,
-              ),
-            ),
+          AppSectionCard(
             child: Column(
               children: [
                 if (authState.isLogin) ...[
@@ -796,17 +779,7 @@ class SettingsView extends ConsumerWidget {
               ),
             ),
           ),
-          Card(
-            elevation: 0,
-            clipBehavior: Clip.antiAlias,
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.08),
-                width: 0.8,
-              ),
-            ),
+          AppSectionCard(
             child: Column(
               children: [
                 ListTile(

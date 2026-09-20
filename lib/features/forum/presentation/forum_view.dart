@@ -652,6 +652,12 @@ class _ForumViewState extends ConsumerState<ForumView> {
                   children: [
                     // Forum Info Banner Card
                     Card(
+                      // Align the banner with TiebaCard below: 12dp parent
+                      // padding + 2dp card margin = 14dp on each side.
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 2,
+                        vertical: 5,
+                      ),
                       elevation: 0,
                       color: colorScheme.surfaceContainerHighest.withValues(
                         alpha: 0.35,

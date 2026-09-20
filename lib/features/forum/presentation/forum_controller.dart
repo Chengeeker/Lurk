@@ -201,8 +201,9 @@ class ForumController extends StateNotifier<ForumState> {
 
   Future<bool> signIn() async {
     final currentForum = state.forum;
-    if (currentForum == null || currentForum.isSigned || state.isSigningIn)
+    if (currentForum == null || currentForum.isSigned || state.isSigningIn) {
       return false;
+    }
 
     final account = _ref.read(authStateProvider).activeAccount;
     if (account == null || !account.isLogin) return false;

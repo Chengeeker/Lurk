@@ -205,6 +205,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
             SpringPageRoute(
               page: ThreadDetailPage(
                 thread: thread.copyWith(isAgreed: isAgreed, agreeNum: agreeNum),
+                initialPostId: thread.firstPostId,
               ),
             ),
           );
@@ -453,6 +454,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                                 isAgreed: isAgreed,
                                 agreeNum: agreeNum,
                               ),
+                              initialPostId: thread.firstPostId,
                             ),
                           ),
                         );

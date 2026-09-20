@@ -20,14 +20,20 @@ import '../../feed/data/models/tieba_thread_model.dart';
 import '../../forum/presentation/forum_view.dart';
 import '../../profile/presentation/user_profile_page.dart';
 import '../../profile/data/bookmarks_repository.dart';
+import '../data/models/tieba_post_model.dart';
 import 'detail_controller.dart';
 import 'widgets/floor_item.dart';
 import 'widgets/image_gallery_page.dart';
 
 class ThreadDetailPage extends ConsumerStatefulWidget {
   final TiebaThreadModel thread;
+  final String initialPostId;
 
-  const ThreadDetailPage({super.key, required this.thread});
+  const ThreadDetailPage({
+    super.key,
+    required this.thread,
+    this.initialPostId = '',
+  });
 
   @override
   ConsumerState<ThreadDetailPage> createState() => _ThreadDetailPageState();
@@ -35,12 +41,44 @@ class ThreadDetailPage extends ConsumerStatefulWidget {
 
 class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _mainArticleKey = GlobalKey();
+  final Map<String, GlobalKey> _floorKeys = {};
   final EasyRefreshController _refreshController = EasyRefreshController(
     controlFinishRefresh: true,
     controlFinishLoad: true,
   );
   final TextEditingController _textController = TextEditingController();
   bool _isBookmarked = false;
+  bool _targetScrollScheduled = false;
+
+  void _scheduleTargetPostScroll(DetailState detailState) {
+    final targetPostId = widget.initialPostId.trim();
+    if (_targetScrollScheduled || targetPostId.isEmpty || targetPostId == '0') {
+      return;
+    }
+
+    final targetFloor = detailState.floors.cast<TiebaFloorModel?>().firstWhere(
+      (floor) => floor?.id == targetPostId,
+      orElse: () => null,
+    );
+    if (targetFloor == null) return;
+
+    _targetScrollScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final key = targetFloor.floor == 1
+          ? _mainArticleKey
+          : _floorKeys[targetPostId];
+      final targetContext = key?.currentContext;
+      if (targetContext == null) return;
+      Scrollable.ensureVisible(
+        targetContext,
+        alignment: 0.08,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
 
   @override
   void initState() {
@@ -223,6 +261,9 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
     final avatarUrl = AppNetworkImage.safeUrl(
       TiebaConstants.getForumAvatarUrl(forumAvatar),
     );
+    final maxTextWidth = (MediaQuery.sizeOf(context).width - 230)
+        .clamp(72.0, 156.0)
+        .toDouble();
 
     return Material(
       color: colorScheme.surfaceContainerHighest,
@@ -238,7 +279,7 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
               AppAvatar(url: avatarUrl, size: 32, radius: 16),
               const SizedBox(width: 8),
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 156),
+                constraints: BoxConstraints(maxWidth: maxTextWidth),
                 child: Text(
                   label,
                   maxLines: 1,
@@ -250,6 +291,45 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterAction({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+    Color? selectedColor,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: SizedBox(
+            height: 48,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: selected
+                        ? (selectedColor ?? colorScheme.onSurface)
+                        : colorScheme.outline,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -275,6 +355,7 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
     final forumAvatar = detailState.forumAvatar.isNotEmpty
         ? detailState.forumAvatar
         : widget.thread.forumAvatar;
+    _scheduleTargetPostScroll(detailState);
 
     return Scaffold(
       appBar: AppBar(
@@ -329,6 +410,7 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
             slivers: [
               // 1. LZ Article Post Hero Card (楼主正文卡片)
               SliverToBoxAdapter(
+                key: _mainArticleKey,
                 child: _buildMainArticleCard(context, detailState),
               ),
 
@@ -358,8 +440,10 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(4),
+                      _buildFilterAction(
+                        label: '只看楼主',
+                        selected: detailState.seeLzOnly,
+                        selectedColor: colorScheme.primary,
                         onTap: () {
                           HapticFeedbackUtil.light();
                           ref
@@ -369,25 +453,11 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                               )
                               .toggleSeeLzOnly();
                         },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Text(
-                            '只看楼主',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              color: detailState.seeLzOnly
-                                  ? colorScheme.primary
-                                  : colorScheme.outline,
-                              fontWeight: detailState.seeLzOnly
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ),
                       ),
                       const Spacer(),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(4),
+                      _buildFilterAction(
+                        label: '正序',
+                        selected: detailState.sortType == CommentSortType.asc,
                         onTap: () {
                           HapticFeedbackUtil.light();
                           ref
@@ -397,22 +467,6 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                               )
                               .setSortType(CommentSortType.asc);
                         },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Text(
-                            '正序',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              color: detailState.sortType == CommentSortType.asc
-                                  ? colorScheme.onSurface
-                                  : colorScheme.outline,
-                              fontWeight:
-                                  detailState.sortType == CommentSortType.asc
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -423,8 +477,9 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      InkWell(
-                        borderRadius: BorderRadius.circular(4),
+                      _buildFilterAction(
+                        label: '倒序',
+                        selected: detailState.sortType == CommentSortType.desc,
                         onTap: () {
                           HapticFeedbackUtil.light();
                           ref
@@ -434,23 +489,6 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                               )
                               .setSortType(CommentSortType.desc);
                         },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Text(
-                            '倒序',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              color:
-                                  detailState.sortType == CommentSortType.desc
-                                  ? colorScheme.onSurface
-                                  : colorScheme.outline,
-                              fontWeight:
-                                  detailState.sortType == CommentSortType.desc
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -518,12 +556,17 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                           floor.author.id == widget.thread.author.id ||
                           floor.author.displayName ==
                               widget.thread.author.displayName;
-                      return FloorItem(
+                      final floorItem = FloorItem(
                         floor: floor,
                         threadId: widget.thread.id,
                         isLz: isLz,
                         fallbackFid: widget.thread.fid,
                         fallbackFname: widget.thread.fname,
+                      );
+                      if (floor.id.isEmpty) return floorItem;
+                      return KeyedSubtree(
+                        key: _floorKeys.putIfAbsent(floor.id, GlobalKey.new),
+                        child: floorItem,
                       );
                     }, childCount: comments.length),
                   );

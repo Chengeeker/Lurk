@@ -1,11 +1,13 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../core/utils/spring_page_route.dart';
 import '../../../core/widgets/app_avatar.dart';
+import '../../../core/widgets/app_section_card.dart';
 import '../../auth/presentation/login_page.dart';
 import '../../settings/presentation/settings_view.dart';
 import 'profile_controller.dart';
@@ -17,15 +19,24 @@ import 'widgets/user_posts_view.dart';
 class ProfileView extends ConsumerWidget {
   const ProfileView({super.key});
 
-
   void _showFansDialog(BuildContext context, int count) {
     HapticFeedbackUtil.light();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(Icons.favorite_rounded, color: Colors.pinkAccent, size: 36),
-        title: const Text('我的粉丝', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        content: Text('您当前共有 $count 位粉丝关注。', style: const TextStyle(fontSize: 14)),
+        icon: const Icon(
+          Icons.favorite_rounded,
+          color: Colors.pinkAccent,
+          size: 36,
+        ),
+        title: const Text(
+          '我的粉丝',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        content: Text(
+          '您当前共有 $count 位粉丝关注。',
+          style: const TextStyle(fontSize: 14),
+        ),
         actions: [
           TextButton(
             onPressed: () {
@@ -51,14 +62,19 @@ class ProfileView extends ConsumerWidget {
 
     final displayName = profile?.displayName.isNotEmpty == true
         ? profile!.displayName
-        : (activeAccount?.nameShow.isNotEmpty == true ? activeAccount!.nameShow : (activeAccount?.name ?? ''));
+        : (activeAccount?.nameShow.isNotEmpty == true
+              ? activeAccount!.nameShow
+              : (activeAccount?.name ?? ''));
     final portrait = profile?.portrait.isNotEmpty == true
         ? profile!.portrait
         : (activeAccount?.portrait ?? '');
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('我的', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: const Text(
+          '我的',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
       ),
       body: EasyRefresh(
         onRefresh: () async {
@@ -70,22 +86,23 @@ class ProfileView extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           children: [
             // User Header Card (MD3E Container)
-            Card(
-              elevation: 0,
-              clipBehavior: Clip.antiAlias,
+            AppSectionCard(
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.1), width: 0.8),
-              ),
+              borderRadius: BorderRadius.circular(20),
               child: InkWell(
                 borderRadius: BorderRadius.circular(20),
                 onTap: () {
                   HapticFeedbackUtil.light();
                   if (isLogin) {
-                    Navigator.push(context, SpringPageRoute(page: const UserPostsView()));
+                    Navigator.push(
+                      context,
+                      SpringPageRoute(page: const UserPostsView()),
+                    );
                   } else {
-                    Navigator.push(context, SpringPageRoute(page: const LoginPage()));
+                    Navigator.push(
+                      context,
+                      SpringPageRoute(page: const LoginPage()),
+                    );
                   }
                 },
                 child: Padding(
@@ -99,8 +116,15 @@ class ProfileView extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isLogin ? (displayName.isNotEmpty ? displayName : '贴吧用户') : '点击登录百度账号',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                              isLogin
+                                  ? (displayName.isNotEmpty
+                                        ? displayName
+                                        : '贴吧用户')
+                                  : '点击登录百度账号',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -109,13 +133,18 @@ class ProfileView extends ConsumerWidget {
                               isLogin
                                   ? '吧龄: ${profile?.tiebaAge ?? 0} 年  •  UID: ${activeAccount?.uid ?? ""}'
                                   : '登录后同步关注、粉丝、收藏等数据',
-                              style: TextStyle(color: colorScheme.outline, fontSize: 12),
+                              style: TextStyle(
+                                color: colorScheme.outline,
+                                fontSize: 12,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Icon(
-                        isLogin ? Icons.chevron_right_rounded : Icons.login_rounded,
+                        isLogin
+                            ? Icons.chevron_right_rounded
+                            : Icons.login_rounded,
                         color: colorScheme.outline,
                       ),
                     ],
@@ -126,14 +155,9 @@ class ProfileView extends ConsumerWidget {
             const SizedBox(height: 14),
 
             // (a) User Stats: 关注数量, 粉丝数量, 回帖数量, 获赞数量 (MD3E Card with Interactive Taps)
-            Card(
-              elevation: 0,
-              clipBehavior: Clip.antiAlias,
+            AppSectionCard(
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.1), width: 0.8),
-              ),
+              borderRadius: BorderRadius.circular(20),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Row(
@@ -145,13 +169,23 @@ class ProfileView extends ConsumerWidget {
                       onTap: () {
                         HapticFeedbackUtil.light();
                         if (isLogin) {
-                          Navigator.push(context, SpringPageRoute(page: const FollowUsersView()));
+                          Navigator.push(
+                            context,
+                            SpringPageRoute(page: const FollowUsersView()),
+                          );
                         } else {
-                          Navigator.push(context, SpringPageRoute(page: const LoginPage()));
+                          Navigator.push(
+                            context,
+                            SpringPageRoute(page: const LoginPage()),
+                          );
                         }
                       },
                     ),
-                    Container(height: 28, width: 0.8, color: theme.dividerColor.withValues(alpha: 0.15)),
+                    Container(
+                      height: 28,
+                      width: 0.8,
+                      color: theme.dividerColor.withValues(alpha: 0.15),
+                    ),
                     _buildStatItem(
                       context,
                       count: '${profile?.fansNum ?? 0}',
@@ -160,7 +194,11 @@ class ProfileView extends ConsumerWidget {
                         _showFansDialog(context, profile?.fansNum ?? 0);
                       },
                     ),
-                    Container(height: 28, width: 0.8, color: theme.dividerColor.withValues(alpha: 0.15)),
+                    Container(
+                      height: 28,
+                      width: 0.8,
+                      color: theme.dividerColor.withValues(alpha: 0.15),
+                    ),
                     _buildStatItem(
                       context,
                       count: '${profile?.postNum ?? 0}',
@@ -168,20 +206,33 @@ class ProfileView extends ConsumerWidget {
                       onTap: () {
                         HapticFeedbackUtil.light();
                         if (isLogin) {
-                          Navigator.push(context, SpringPageRoute(page: const UserPostsView()));
+                          Navigator.push(
+                            context,
+                            SpringPageRoute(page: const UserPostsView()),
+                          );
                         } else {
-                          Navigator.push(context, SpringPageRoute(page: const LoginPage()));
+                          Navigator.push(
+                            context,
+                            SpringPageRoute(page: const LoginPage()),
+                          );
                         }
                       },
                     ),
-                    Container(height: 28, width: 0.8, color: theme.dividerColor.withValues(alpha: 0.15)),
+                    Container(
+                      height: 28,
+                      width: 0.8,
+                      color: theme.dividerColor.withValues(alpha: 0.15),
+                    ),
                     _buildStatItem(
                       context,
                       count: '${profile?.agreeNum ?? 0}',
                       label: '获赞',
                       onTap: () {
                         HapticFeedbackUtil.light();
-                        AppToast.show(context, '累计获得 ${profile?.agreeNum ?? 0} 个吧友点赞');
+                        AppToast.show(
+                          context,
+                          '累计获得 ${profile?.agreeNum ?? 0} 个吧友点赞',
+                        );
                       },
                     ),
                   ],
@@ -203,14 +254,9 @@ class ProfileView extends ConsumerWidget {
               ),
             ),
 
-            Card(
-              elevation: 0,
-              clipBehavior: Clip.antiAlias,
+            AppSectionCard(
               color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.1), width: 0.8),
-              ),
+              borderRadius: BorderRadius.circular(20),
               child: Column(
                 children: [
                   _buildMenuItem(
@@ -221,10 +267,17 @@ class ProfileView extends ConsumerWidget {
                     subtitle: '本地保存与收藏贴子',
                     onTap: () {
                       HapticFeedbackUtil.light();
-                      Navigator.push(context, SpringPageRoute(page: const BookmarksView()));
+                      Navigator.push(
+                        context,
+                        SpringPageRoute(page: const BookmarksView()),
+                      );
                     },
                   ),
-                  Divider(height: 1, indent: 56, color: theme.dividerColor.withValues(alpha: 0.1)),
+                  Divider(
+                    height: 1,
+                    indent: 56,
+                    color: theme.dividerColor.withValues(alpha: 0.1),
+                  ),
                   _buildMenuItem(
                     context,
                     icon: Icons.history_rounded,
@@ -233,10 +286,17 @@ class ProfileView extends ConsumerWidget {
                     subtitle: '查看最近阅读的贴子',
                     onTap: () {
                       HapticFeedbackUtil.light();
-                      Navigator.push(context, SpringPageRoute(page: const HistoryView()));
+                      Navigator.push(
+                        context,
+                        SpringPageRoute(page: const HistoryView()),
+                      );
                     },
                   ),
-                  Divider(height: 1, indent: 56, color: theme.dividerColor.withValues(alpha: 0.1)),
+                  Divider(
+                    height: 1,
+                    indent: 56,
+                    color: theme.dividerColor.withValues(alpha: 0.1),
+                  ),
                   _buildMenuItem(
                     context,
                     icon: Icons.settings_outlined,
@@ -245,7 +305,10 @@ class ProfileView extends ConsumerWidget {
                     subtitle: '主题模式、色彩方案、悬浮胶囊底栏与触感反馈',
                     onTap: () {
                       HapticFeedbackUtil.light();
-                      Navigator.push(context, SpringPageRoute(page: const SettingsView()));
+                      Navigator.push(
+                        context,
+                        SpringPageRoute(page: const SettingsView()),
+                      );
                     },
                   ),
                 ],
@@ -277,7 +340,10 @@ class ProfileView extends ConsumerWidget {
             children: [
               Text(
                 count,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
@@ -304,8 +370,14 @@ class ProfileView extends ConsumerWidget {
 
     return ListTile(
       leading: Icon(icon, color: iconColor),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-      subtitle: Text(subtitle, style: TextStyle(fontSize: 12.5, color: colorScheme.outline)),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(fontSize: 12.5, color: colorScheme.outline),
+      ),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,
     );

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../utils/haptic_feedback_util.dart';
 
 class AppTheme {
   AppTheme._();
 
   static const List<Map<String, dynamic>> themeColors = [
-    {'name': '贴吧蓝', 'color': Color(0xFF2F54EB)},
+    {'name': '深海蓝', 'color': Color(0xFF2F54EB)},
     {'name': '活力橙', 'color': Color(0xFFFF7A00)},
     {'name': '薄荷绿', 'color': Color(0xFF00A870)},
     {'name': '优雅紫', 'color': Color(0xFF722ED1)},
@@ -80,11 +81,9 @@ class AppTheme {
     int fontWeightIndex = 1,
   }) {
     final seed = getSeedColor(colorIndex);
-    final scheme = dynamicColorScheme ??
-        ColorScheme.fromSeed(
-          seedColor: seed,
-          brightness: Brightness.light,
-        );
+    final scheme =
+        dynamicColorScheme ??
+        ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light);
 
     final baseTheme = ThemeData(
       useMaterial3: true,
@@ -124,7 +123,9 @@ class AppTheme {
         backgroundColor: scheme.surface,
         surfaceTintColor: Colors.transparent,
         indicatorColor: scheme.primaryContainer,
-        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -151,14 +152,14 @@ class AppTheme {
     int fontWeightIndex = 1,
   }) {
     final seed = getSeedColor(colorIndex);
-    final scheme = dynamicColorScheme ??
-        ColorScheme.fromSeed(
-          seedColor: seed,
-          brightness: Brightness.dark,
-        );
+    final scheme =
+        dynamicColorScheme ??
+        ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark);
 
     final bgColor = isPureBlack ? Colors.black : const Color(0xFF111215);
-    final cardColor = isPureBlack ? const Color(0xFF121212) : const Color(0xFF1B1C20);
+    final cardColor = isPureBlack
+        ? const Color(0xFF121212)
+        : const Color(0xFF1B1C20);
     final appBarColor = isPureBlack ? Colors.black : const Color(0xFF111215);
     final navBgColor = isPureBlack ? Colors.black : const Color(0xFF16171B);
 
@@ -209,7 +210,9 @@ class AppTheme {
         backgroundColor: navBgColor,
         surfaceTintColor: Colors.transparent,
         indicatorColor: scheme.primaryContainer,
-        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        indicatorShape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {

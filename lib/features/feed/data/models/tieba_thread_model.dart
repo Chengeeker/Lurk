@@ -1,4 +1,5 @@
 import '../../../../core/utils/tieba_emoticon_util.dart';
+import '../../../../core/utils/tieba_html_parser.dart';
 
 class TiebaAuthorModel {
   final String id;
@@ -230,8 +231,9 @@ class TiebaMediaModel {
       final lower = u.trim().toLowerCase();
       if (lower.endsWith('.swf') ||
           lower.contains('.swf?') ||
-          lower.contains('/video.swf'))
+          lower.contains('/video.swf')) {
         return false;
+      }
       return true;
     }
 
@@ -547,7 +549,7 @@ class TiebaThreadModel {
           buffer.write(item);
         }
       }
-      return buffer.toString().trim();
+      return TiebaHtmlParser.toPlainText(buffer.toString());
     }
 
     String snippet = '';
@@ -563,15 +565,9 @@ class TiebaThreadModel {
     } else if (json['content'] is String &&
         (json['content'] as String).isNotEmpty) {
       final rawHtml = json['content'] as String;
-      snippet = rawHtml
-          .replaceAll(
-            RegExp(r'<img[^>]*image_emoticon(\d+)\.png[^>]*>'),
-            '[表情]',
-          )
-          .replaceAll(RegExp(r'<[^>]*>'), '')
-          .trim();
+      snippet = TiebaHtmlParser.toPlainText(rawHtml);
     } else if (json['content_snippet'] != null) {
-      snippet = json['content_snippet'].toString();
+      snippet = TiebaHtmlParser.toPlainText(json['content_snippet'].toString());
     }
 
     final agree = json['agree'] is Map ? (json['agree'] as Map) : null;

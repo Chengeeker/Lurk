@@ -1,8 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import 'tieba_emojis.dart';
 import 'tieba_emoticon_util.dart';
+import 'tieba_html_parser.dart';
 
 class TiebaTextParser {
   TiebaTextParser._();
@@ -20,7 +22,8 @@ class TiebaTextParser {
     final primary = linkColor ?? colorScheme.primary;
 
     final List<InlineSpan> spans = [];
-    if (rawText.isEmpty) return spans;
+    final normalizedText = TiebaHtmlParser.toPlainText(rawText);
+    if (normalizedText.isEmpty) return spans;
 
     final regex = RegExp(
       r'(@[a-zA-Z0-9_\u4e00-\u9fa5]+)|(#[^#\n]+#)|(https?:\/\/[^\s]+)|(#\([a-zA-Z0-9_\u4e00-\u9fa5~,]+\))|(\[[a-zA-Z0-9_\u4e00-\u9fa5~]+\])|(image_emoticon\d*)|(image\s+emoticon\s*\d*)',
@@ -28,9 +31,9 @@ class TiebaTextParser {
     );
 
     int lastIndex = 0;
-    for (final match in regex.allMatches(rawText)) {
+    for (final match in regex.allMatches(normalizedText)) {
       if (match.start > lastIndex) {
-        final textChunk = rawText.substring(lastIndex, match.start);
+        final textChunk = normalizedText.substring(lastIndex, match.start);
         spans.add(TextSpan(text: textChunk, style: baseStyle));
       }
 
@@ -51,7 +54,9 @@ class TiebaTextParser {
               },
           ),
         );
-      } else if (matchedStr.startsWith('#') && matchedStr.endsWith('#') && matchedStr.length > 2) {
+      } else if (matchedStr.startsWith('#') &&
+          matchedStr.endsWith('#') &&
+          matchedStr.length > 2) {
         final topic = matchedStr.substring(1, matchedStr.length - 1);
         spans.add(
           TextSpan(
@@ -94,12 +99,7 @@ class TiebaTextParser {
         );
       } else if (matchedStr.startsWith('#(') && matchedStr.endsWith(')')) {
         final emojiSymbol = TiebaEmojis.emojiMap[matchedStr];
-        spans.add(
-          TextSpan(
-            text: emojiSymbol ?? matchedStr,
-            style: baseStyle,
-          ),
-        );
+        spans.add(TextSpan(text: emojiSymbol ?? matchedStr, style: baseStyle));
       } else if (matchedStr.toLowerCase().contains('emoticon')) {
         spans.add(
           TiebaEmoticonUtil.buildEmoticonSpan(
@@ -114,8 +114,10 @@ class TiebaTextParser {
       lastIndex = match.end;
     }
 
-    if (lastIndex < rawText.length) {
-      spans.add(TextSpan(text: rawText.substring(lastIndex), style: baseStyle));
+    if (lastIndex < normalizedText.length) {
+      spans.add(
+        TextSpan(text: normalizedText.substring(lastIndex), style: baseStyle),
+      );
     }
 
     return spans;

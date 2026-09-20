@@ -78,6 +78,23 @@ void main() {
     expect(thread.fname, equals('抗压背锅吧'));
   });
 
+  test('TiebaThreadModel removes HTML fragments from feed snippets', () {
+    final thread = TiebaThreadModel.fromJson({
+      'id': 'html-thread',
+      'title': 'HTML 内容测试',
+      'content': [
+        {
+          'type': 0,
+          'text': '正文<img class="BDE_Smiley" src="https://tb2.bdstatic.com/tb/editor/images/client/image_emoticon25.png"> &amp; 后续',
+        },
+      ],
+      'author': {'id': '1', 'name': '测试用户'},
+    });
+
+    expect(thread.contentSnippet, equals('正文[滑稽] & 后续'));
+    expect(thread.contentSnippet.contains('<img'), isFalse);
+  });
+
   test('TiebaHotTopicModel parsing test', () {
     final hotJson = {
       'topic_id': '28362171',

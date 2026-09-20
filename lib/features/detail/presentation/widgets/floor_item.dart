@@ -98,42 +98,58 @@ class FloorItem extends ConsumerWidget {
 
   Widget _buildAgreeButton(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () {
-        HapticFeedbackUtil.light();
-        ref
-            .read(detailControllerFamily(threadId).notifier)
-            .toggleFloorAgree(floor.id);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              floor.isAgreed
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
-              size: 18,
-              color: floor.isAgreed ? Colors.redAccent : colorScheme.outline,
-            ),
-            const SizedBox(width: 4),
-            SizedBox(
-              width: 26,
-              child: Text(
-                floor.agreeNum > 0 ? '${floor.agreeNum}' : '',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: floor.isAgreed
-                      ? Colors.redAccent
-                      : colorScheme.outline,
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 1,
+    final label = floor.isAgreed
+        ? '取消点赞，${floor.agreeNum}个赞'
+        : '点赞，${floor.agreeNum}个赞';
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () {
+            HapticFeedbackUtil.light();
+            ref
+                .read(detailControllerFamily(threadId).notifier)
+                .toggleFloorAgree(floor.id);
+          },
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    floor.isAgreed
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    size: 18,
+                    color: floor.isAgreed
+                        ? Colors.redAccent
+                        : colorScheme.outline,
+                  ),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 26,
+                    child: Text(
+                      floor.agreeNum > 0 ? '${floor.agreeNum}' : '',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: floor.isAgreed
+                            ? Colors.redAccent
+                            : colorScheme.outline,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -145,18 +161,28 @@ class FloorItem extends ConsumerWidget {
     required bool canDelete,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () {
-        HapticFeedbackUtil.light();
-        _showFloorActionSheet(context, ref, canDelete: canDelete);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Icon(
-          Icons.more_horiz_rounded,
-          size: 18,
-          color: colorScheme.outline.withValues(alpha: 0.7),
+    return Semantics(
+      button: true,
+      label: '更多操作',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: () {
+            HapticFeedbackUtil.light();
+            _showFloorActionSheet(context, ref, canDelete: canDelete);
+          },
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: Icon(
+                Icons.more_horiz_rounded,
+                size: 18,
+                color: colorScheme.outline.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
         ),
       ),
     );
