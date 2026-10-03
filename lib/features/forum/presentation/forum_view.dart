@@ -17,6 +17,7 @@ import '../../feed/presentation/widgets/tieba_card.dart';
 import '../../search/presentation/search_view.dart';
 import '../data/models/forum_model.dart';
 import '../data/forum_repository.dart';
+import 'create_thread_page.dart';
 import 'forum_controller.dart';
 
 class ForumView extends ConsumerStatefulWidget {
@@ -574,7 +575,24 @@ class _ForumViewState extends ConsumerState<ForumView> {
             ),
             onSelected: (value) async {
               HapticFeedbackUtil.light();
-              if (value == 'share') {
+              if (value == 'post') {
+                final account = ref.read(authStateProvider).activeAccount;
+                if (account == null || !account.isLogin) {
+                  AppToast.show(context, '请先登录百度账号');
+                  return;
+                }
+                final didPost = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        CreateThreadPage(forumName: widget.forumName),
+                  ),
+                );
+                if (didPost == true && mounted) {
+                  await ref
+                      .read(forumControllerFamily(widget.forumName).notifier)
+                      .refresh();
+                }
+              } else if (value == 'share') {
                 Clipboard.setData(
                   ClipboardData(
                     text:
@@ -597,6 +615,16 @@ class _ForumViewState extends ConsumerState<ForumView> {
             },
             itemBuilder: (context) {
               return const [
+                PopupMenuItem(
+                  value: 'post',
+                  child: Row(
+                    children: [
+                      Icon(Icons.post_add_rounded, size: 20),
+                      SizedBox(width: 12),
+                      Text('发帖'),
+                    ],
+                  ),
+                ),
                 PopupMenuItem(
                   value: 'share',
                   child: Row(

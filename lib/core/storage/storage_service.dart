@@ -47,6 +47,7 @@ class StorageService {
   static const String keyHabitDoNotSaveHistory =
       'key_habit_do_not_save_history';
   static const String keyBookmarkSortOrder = 'key_bookmark_sort_order';
+  static const String keyMyForumsSingleColumn = 'key_my_forums_single_column';
 
   static String bookmarksKeyForAccount(String uid) {
     final normalized = uid.trim();
@@ -124,6 +125,11 @@ class StorageService {
   Future<bool> setAutoClearCacheOnExit(bool val) =>
       setBool(keyAutoClearCacheOnExit, val);
 
+  bool getMyForumsSingleColumn() =>
+      getBool(keyMyForumsSingleColumn, defaultValue: false);
+  Future<bool> setMyForumsSingleColumn(bool val) =>
+      setBool(keyMyForumsSingleColumn, val);
+
   String exportSafeBackup() {
     final Map<String, dynamic> safeMap = {
       'version': 1,
@@ -136,6 +142,7 @@ class StorageService {
       'use_floating_nav_bar': getUseFloatingNavBar(),
       'font_weight_index': getFontWeightIndex(),
       'refresh_rate_index': getRefreshRateIndex(),
+      'my_forums_single_column': getMyForumsSingleColumn(),
       'bookmarks': getStringList(keyBookmarks),
       'history': getStringList(keyBrowsingHistory),
     };
@@ -168,6 +175,9 @@ class StorageService {
       }
       if (map['refresh_rate_index'] != null) {
         await setRefreshRateIndex(map['refresh_rate_index']);
+      }
+      if (map['my_forums_single_column'] != null) {
+        await setMyForumsSingleColumn(map['my_forums_single_column']);
       }
       if (map['bookmarks'] != null) {
         await setStringList(keyBookmarks, List<String>.from(map['bookmarks']));

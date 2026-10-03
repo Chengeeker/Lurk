@@ -23,6 +23,8 @@ class TiebaConstants {
   static const String pathAgree = '/c/c/agree/opAgree';
   static const String pathSign = '/c/c/forum/sign';
   static const String pathBatchSign = '/c/c/forum/msign';
+  static const String pathUploadPicture = '/c/s/uploadPicture';
+  static const String pathAddThread = '/c/c/thread/add';
   static const String pathAddPost = '/c/c/post/add';
   static const String pathDelPost = '/c/c/bawu/delpost';
   static const String pathDelThread = '/c/c/bawu/delthread';

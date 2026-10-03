@@ -1,12 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../core/auth/account_model.dart';
 import '../../../core/constants/tieba_constants.dart';
 import '../../../core/network/tieba_dio_client.dart';
 import '../../feed/data/models/tieba_thread_model.dart';
 import 'models/forum_model.dart';
+import 'tieba_image_uploader.dart';
 
 class ForumRepository {
   final TiebaDioClient _client;
+  final TiebaImageUploader _imageUploader = TiebaImageUploader();
   final Map<String, String> _forumIdCache = {};
 
   ForumRepository(this._client);
@@ -246,6 +250,92 @@ class ForumRepository {
     final data = res.data;
     return data is Map &&
         (data['error_code'] == 0 || data['error_code'] == '0');
+  }
+
+  Future<List<UploadedThreadImage>> uploadThreadImages({
+    required String forumName,
+    required List<XFile> images,
+    required AccountModel account,
+    void Function(int completed, int total)? onProgress,
+  }) async {
+    final uploaded = <UploadedThreadImage>[];
+    for (var index = 0; index < images.length; index++) {
+      try {
+        uploaded.add(
+          await _imageUploader.upload(
+            file: images[index],
+            forumName: forumName,
+            account: account,
+          ),
+        );
+      } on TiebaImageUploadException catch (error) {
+        throw TiebaImageUploadException(
+          '第${index + 1}张图片上传失败：${error.message}',
+        );
+      }
+      onProgress?.call(index + 1, images.length);
+    }
+    return uploaded;
+  }
+
+  Future<({bool success, String errorMsg})> createThread({
+    required String forumName,
+    required String forumId,
+    required String title,
+    required String content,
+    required String tbs,
+  }) async {
+    try {
+      final cleanForumName = forumName.replaceFirst(RegExp(r'吧$'), '').trim();
+      final now = DateTime.now();
+      final res = await _client.post(
+        TiebaConstants.pathAddThread,
+        data: {
+          '_client_id':
+              'wappc_${now.millisecondsSinceEpoch}_${now.microsecond % 1000}',
+          'anonymous': '0',
+          'content': content,
+          'fid': forumId,
+          'kw': cleanForumName,
+          'new_vcode': '1',
+          'tbs': tbs,
+          'title': title,
+          'vcode_tag': '11',
+        },
+      );
+
+      final data = res.data;
+      if (data is! Map) {
+        return (success: false, errorMsg: '贴吧返回了无法识别的发帖结果');
+      }
+
+      final rawError = data['error'];
+      final error = rawError is Map ? rawError : const <dynamic, dynamic>{};
+      final code = data['error_code'] ?? error['error_code'];
+      if (code == 0 || code == '0') {
+        return (success: true, errorMsg: '');
+      }
+
+      final messages = [
+        data['error_msg'],
+        error['user_msg'],
+        error['errmsg'],
+        data['msg'],
+        if (rawError is String) rawError,
+      ];
+      final message = messages
+          .map((value) => value?.toString().trim() ?? '')
+          .firstWhere((value) => value.isNotEmpty, orElse: () => '');
+      return (
+        success: false,
+        errorMsg: message.isNotEmpty
+            ? message
+            : '贴吧拒绝了发帖请求（代码：${code ?? '未知'}）',
+      );
+    } catch (_) {
+      // 发帖请求不自动重试，避免超时但服务端已接收时产生重复主题。
+      return (success: false, errorMsg: '网络异常，发帖结果未知，请先刷新吧页面确认后再重试');
+    }
   }
 
   String? getCachedForumId(String forumName) => _forumIdCache[forumName];

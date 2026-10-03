@@ -54,7 +54,7 @@
 - **Web Navigation**: [WebView Flutter](https://pub.dev/packages/webview_flutter) + [url_launcher](https://pub.dev/packages/url_launcher)
 - **Local Storage**: [SharedPreferences](https://pub.dev/packages/shared_preferences) 高性能键值对存储，管理自定义屏蔽规则与使用习惯配置
 
-详细的协议逆向细节、历史问题复盘与接口避坑指南，请查阅 [🛠️ 开发者文档与协议避坑指南](DEVELOPMENT.md)。
+仓库内的开发入口和本机完整开发文档位置，请查阅 [🛠️ 仓库开发说明](DEVELOPMENT.md)。
 
 ---
 

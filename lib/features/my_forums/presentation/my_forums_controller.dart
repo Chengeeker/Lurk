@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/storage/storage_service.dart';
 import '../data/models/followed_forum_model.dart';
 import '../data/my_forums_repository.dart';
 
@@ -106,4 +107,29 @@ final myForumsControllerProvider =
     StateNotifierProvider<MyForumsController, MyForumsState>((ref) {
       final repo = ref.watch(myForumsRepositoryProvider);
       return MyForumsController(repo, ref);
+    });
+
+class MyForumsLayoutNotifier extends StateNotifier<bool> {
+  final StorageService _storage;
+
+  MyForumsLayoutNotifier(this._storage)
+      : super(_storage.getMyForumsSingleColumn());
+
+  Future<void> toggle() async {
+    final next = !state;
+    state = next;
+    await _storage.setMyForumsSingleColumn(next);
+  }
+
+  Future<void> setSingleColumn(bool value) async {
+    if (state == value) return;
+    state = value;
+    await _storage.setMyForumsSingleColumn(value);
+  }
+}
+
+final myForumsSingleColumnProvider =
+    StateNotifierProvider<MyForumsLayoutNotifier, bool>((ref) {
+      final storage = ref.watch(storageServiceProvider);
+      return MyForumsLayoutNotifier(storage);
     });

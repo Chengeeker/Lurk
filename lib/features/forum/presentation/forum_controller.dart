@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/auth/auth_provider.dart';
 import '../../feed/data/models/tieba_thread_model.dart';
 import '../../my_forums/presentation/my_forums_controller.dart';
 import '../../settings/presentation/providers/habit_settings_provider.dart';
 import '../data/forum_repository.dart';
+import '../data/tieba_image_uploader.dart';
 import '../data/models/forum_model.dart';
 
 class ForumState {
@@ -245,6 +247,104 @@ class ForumController extends StateNotifier<ForumState> {
     } catch (_) {}
     state = state.copyWith(isSigningIn: false);
     return false;
+  }
+
+  Future<({bool success, String errorMsg})> createThread({
+    required String title,
+    required String content,
+    List<XFile> images = const [],
+    void Function(int completed, int total)? onImageUploadProgress,
+  }) async {
+    try {
+      final account = _ref.read(authStateProvider).activeAccount;
+      if (account == null || !account.isLogin) {
+        return (success: false, errorMsg: '请先登录百度账号');
+      }
+      if (title.trim().isEmpty) {
+        return (success: false, errorMsg: '请输入帖子标题');
+      }
+      if (content.trim().isEmpty && images.isEmpty) {
+        return (success: false, errorMsg: '请输入帖子内容或添加图片');
+      }
+
+      var targetFid = state.forum?.id.trim() ?? '';
+      if (targetFid.isEmpty || targetFid == '0') {
+        final cleanForumName = forumName.replaceFirst(RegExp(r'吧$'), '').trim();
+        final myForums = _ref.read(myForumsControllerProvider).forums;
+        final matched = myForums.where(
+          (forum) =>
+              forum.name.replaceFirst(RegExp(r'吧$'), '').trim() ==
+              cleanForumName,
+        );
+        targetFid = matched.isNotEmpty
+            ? matched.first.id.trim()
+            : (_repository.getCachedForumId(forumName) ?? '');
+      }
+
+      if (targetFid.isEmpty || targetFid == '0') {
+        final page = await _repository.getForumPage(
+          forumName: forumName,
+          page: 1,
+        );
+        targetFid = (page['forum'] as ForumDetailModel?)?.id.trim() ?? '';
+      }
+      if (targetFid.isEmpty || targetFid == '0') {
+        return (success: false, errorMsg: '无法获取当前贴吧的 ID，请刷新页面后重试');
+      }
+
+      final auth = _ref.read(authStateProvider.notifier);
+      var tbs = await auth.getValidTbs();
+      if (tbs.isEmpty) tbs = await auth.getValidTbs(forceRefresh: true);
+      if (tbs.isEmpty) {
+        return (success: false, errorMsg: '无法获取发帖校验信息，请重新登录后重试');
+      }
+
+      var finalContent = content.trim();
+      if (images.isNotEmpty) {
+        List<UploadedThreadImage> uploadedImages;
+        try {
+          uploadedImages = await _repository.uploadThreadImages(
+            forumName: forumName,
+            images: images,
+            account: account,
+            onProgress: onImageUploadProgress,
+          );
+        } on TiebaImageUploadException catch (error) {
+          return (success: false, errorMsg: error.message);
+        }
+        finalContent = [
+          if (finalContent.isNotEmpty) finalContent,
+          ...uploadedImages.map((image) => image.contentTag),
+        ].join('\n');
+      }
+
+      var result = await _repository.createThread(
+        forumName: forumName,
+        forumId: targetFid,
+        title: title.trim(),
+        content: finalContent,
+        tbs: tbs,
+      );
+
+      if (!result.success &&
+          (result.errorMsg.toLowerCase().contains('tbs') ||
+              result.errorMsg.contains('校验'))) {
+        final freshTbs = await auth.getValidTbs(forceRefresh: true);
+        if (freshTbs.isNotEmpty && freshTbs != tbs) {
+          result = await _repository.createThread(
+            forumName: forumName,
+            forumId: targetFid,
+            title: title.trim(),
+            content: finalContent,
+            tbs: freshTbs,
+          );
+        }
+      }
+
+      return result;
+    } catch (_) {
+      return (success: false, errorMsg: '发帖失败，请稍后重试');
+    }
   }
 
   Future<({bool success, String errorMsg})> followForum() async {

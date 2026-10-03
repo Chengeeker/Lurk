@@ -8,6 +8,7 @@ import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/spring_page_route.dart';
 import '../../../core/widgets/app_avatar.dart';
 import '../../forum/presentation/forum_view.dart';
+import '../data/models/followed_forum_model.dart';
 import 'my_forums_controller.dart';
 
 class MyForumsView extends ConsumerWidget {
@@ -60,12 +61,37 @@ class MyForumsView extends ConsumerWidget {
     final colorScheme = theme.colorScheme;
     final forumsState = ref.watch(myForumsControllerProvider);
     final isLogin = ref.watch(authStateProvider).isLogin;
+    final isSingleColumn = ref.watch(myForumsSingleColumnProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          '我的关注',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '我的关注',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: isSingleColumn ? '切换为双列视图' : '切换为单列视图',
+              style: IconButton.styleFrom(
+                minimumSize: const Size(36, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: EdgeInsets.zero,
+              ),
+              icon: Icon(
+                isSingleColumn
+                    ? Icons.grid_view_rounded
+                    : Icons.view_agenda_outlined,
+                size: 20,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              onPressed: () {
+                ref.read(myForumsSingleColumnProvider.notifier).toggle();
+              },
+            ),
+          ],
         ),
         actions: [
           if (isLogin && forumsState.forums.isNotEmpty)
@@ -125,115 +151,251 @@ class MyForumsView extends ConsumerWidget {
                 message: '暂无关注的吧',
                 detail: '关注新的吧后，它们会显示在这里',
               )
+            : isSingleColumn
+            ? ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                itemCount: forumsState.forums.length,
+                itemBuilder: (context, index) {
+                  final forum = forumsState.forums[index];
+                  return _buildSingleColumnCard(
+                    context,
+                    colorScheme,
+                    forum,
+                  );
+                },
+              )
             : GridView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(12),
                 gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                   maxCrossAxisExtent: 280,
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
-                  childAspectRatio: 2.2,
+                  childAspectRatio: 2.0,
                 ),
                 itemCount: forumsState.forums.length,
                 itemBuilder: (context, index) {
                   final forum = forumsState.forums[index];
-                  return Card(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          SpringPageRoute(
-                            page: ForumView(forumName: forum.name),
-                          ),
-                        );
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Row(
-                          children: [
-                            AppAvatar(
-                              url: TiebaConstants.getForumAvatarUrl(
-                                forum.avatar,
-                              ),
-                              size: 44,
-                              radius: 22,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    forum.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 5,
-                                          vertical: 1,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.primaryContainer,
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          'Lv.${forum.userLevel}',
-                                          style: TextStyle(
-                                            color:
-                                                colorScheme.onPrimaryContainer,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                      if (forum.isSigned) ...[
-                                        const SizedBox(width: 5),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 5,
-                                            vertical: 1,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: colorScheme
-                                                .surfaceContainerHighest
-                                                .withValues(alpha: 0.6),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '已签到',
-                                            style: TextStyle(
-                                              color: colorScheme.outline,
-                                              fontSize: 9.5,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  return _buildDoubleColumnCard(
+                    context,
+                    colorScheme,
+                    forum,
                   );
                 },
               ),
+      ),
+    );
+  }
+
+  Widget _buildSingleColumnCard(
+    BuildContext context,
+    ColorScheme colorScheme,
+    FollowedForumModel forum,
+  ) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4.5),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            SpringPageRoute(
+              page: ForumView(forumName: forum.name),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              AppAvatar(
+                url: TiebaConstants.getForumAvatarUrl(
+                  forum.avatar,
+                ),
+                size: 46,
+                radius: 23,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      forum.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(
+                              4,
+                            ),
+                          ),
+                          child: Text(
+                            'Lv.${forum.userLevel}',
+                            style: TextStyle(
+                              color: colorScheme.onPrimaryContainer,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        if (forum.isSigned) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(
+                                4,
+                              ),
+                            ),
+                            child: Text(
+                              '已签到',
+                              style: TextStyle(
+                                color: colorScheme.outline,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: colorScheme.outline.withValues(alpha: 0.4),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDoubleColumnCard(
+    BuildContext context,
+    ColorScheme colorScheme,
+    FollowedForumModel forum,
+  ) {
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            SpringPageRoute(
+              page: ForumView(forumName: forum.name),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              AppAvatar(
+                url: TiebaConstants.getForumAvatarUrl(
+                  forum.avatar,
+                ),
+                size: 42,
+                radius: 21,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      forum.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(
+                              4,
+                            ),
+                          ),
+                          child: Text(
+                            'Lv.${forum.userLevel}',
+                            style: TextStyle(
+                              color: colorScheme.onPrimaryContainer,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        if (forum.isSigned) ...[
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.6),
+                              borderRadius: BorderRadius.circular(
+                                4,
+                              ),
+                            ),
+                            child: Text(
+                              '已签到',
+                              style: TextStyle(
+                                color: colorScheme.outline,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

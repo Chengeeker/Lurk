@@ -14,6 +14,7 @@ import 'package:lurk/features/detail/data/protobuf/add_post_protobuf.dart';
 import 'package:lurk/features/feed/data/models/hot_topic_model.dart';
 import 'package:lurk/features/feed/data/models/tieba_thread_model.dart';
 import 'package:lurk/features/forum/data/models/forum_model.dart';
+import 'package:lurk/features/my_forums/presentation/my_forums_controller.dart';
 import 'package:lurk/features/profile/data/bookmarks_repository.dart';
 import 'package:lurk/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -403,5 +404,34 @@ void main() {
       repository.isLocallyBookmarked('account-thread', userId: 'account-2'),
       isFalse,
     );
+  });
+
+  test('MyForums layout preference and notifier toggle test', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final storage = StorageService(prefs);
+
+    expect(storage.getMyForumsSingleColumn(), isFalse);
+    final notifier = MyForumsLayoutNotifier(storage);
+    expect(notifier.state, isFalse);
+
+    await notifier.toggle();
+    expect(notifier.state, isTrue);
+    expect(storage.getMyForumsSingleColumn(), isTrue);
+
+    await notifier.toggle();
+    expect(notifier.state, isFalse);
+    expect(storage.getMyForumsSingleColumn(), isFalse);
+
+    await notifier.setSingleColumn(true);
+    expect(notifier.state, isTrue);
+    expect(storage.getMyForumsSingleColumn(), isTrue);
+
+    final backup = storage.exportSafeBackup();
+    expect(backup.contains('"my_forums_single_column":true'), isTrue);
+
+    await storage.setMyForumsSingleColumn(false);
+    await storage.importSafeBackup(backup);
+    expect(storage.getMyForumsSingleColumn(), isTrue);
   });
 }
