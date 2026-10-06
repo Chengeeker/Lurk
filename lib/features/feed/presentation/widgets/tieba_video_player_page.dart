@@ -2,13 +2,19 @@ import "dart:async";
 
 import "package:dio/dio.dart";
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:video_player/video_player.dart";
 
 import "../../../../core/network/sign_interceptor.dart";
 import "../../../../core/services/media_save_service.dart";
+import "../../../../core/services/share_service.dart";
 import "../../../../core/utils/app_toast.dart";
 import "../../../../core/utils/haptic_feedback_util.dart";
+
+enum _DragMode { none, brightness, volume }
+
+enum _HudType { none, brightness, volume, seek }
 
 /// 贴吧原生沉浸式视频播放器 (支持智能解析、按住即刻 2.0X 极速快进/松手秒回原速、清晰度无缝切换、高反差相册保存)
 class TiebaVideoPlayerPage extends ConsumerStatefulWidget {
@@ -35,7 +41,10 @@ class TiebaVideoPlayerPage extends ConsumerStatefulWidget {
 }
 
 class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
+  static const MethodChannel _mediaChannel = MethodChannel("com.lurk/app");
+
   VideoPlayerController? _controller;
+  int _playerLoadId = 0;
   bool _isInitialized = false;
   bool _hasError = false;
   bool _showControls = true;
@@ -62,7 +71,23 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
 
   // 按住快进手势计时器与指针跟踪
   Timer? _pressTimer;
-  int _activePointers = 0;
+  Timer? _hideControlsTimer;
+  Timer? _hudDismissTimer;
+  final Set<int> _fastForwardPointers = {};
+  bool _fastForwardGestureConsumed = false;
+  bool _isLandscape = false;
+  bool _brightnessChanged = false;
+  Offset _lastTapDownPosition = Offset.zero;
+  Offset _panStartPosition = Offset.zero;
+  _DragMode _dragMode = _DragMode.none;
+  _HudType _hudType = _HudType.none;
+  double _startBrightness = 0.5;
+  double _currentBrightness = 0.5;
+  double _startVolume = 0.5;
+  double _currentVolume = 0.5;
+  double _hudValue = 0.5;
+  int _hudSeekDiff = 0;
+  Duration _targetSeekPosition = Duration.zero;
 
   @override
   void initState() {
@@ -89,6 +114,8 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
     } else {
       _initPlayer();
     }
+    _initDeviceLevels();
+    _resetControlsTimer();
   }
 
   bool _looksLikeDirectVideoUrl(String url) {
@@ -190,69 +217,108 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
       return;
     }
 
+    final loadId = ++_playerLoadId;
+    final previousController = _controller;
+    _controller = null;
     _effectiveVideoUrl = targetUrl;
-    String primaryUrl = targetUrl.trim();
-    String fallbackUrl = primaryUrl.startsWith("http://")
+    final primaryUrl = targetUrl.trim();
+    final fallbackUrl = primaryUrl.startsWith("http://")
         ? primaryUrl.replaceFirst("http://", "https://")
         : primaryUrl.replaceFirst("https://", "http://");
 
-    try {
-      if (mounted) {
-        setState(() {
-          _hasError = false;
-          _isInitialized = false;
-        });
-      }
+    setState(() {
+      _hasError = false;
+      _isInitialized = false;
+    });
 
-      await _controller?.dispose();
-      _controller = VideoPlayerController.networkUrl(
+    VideoPlayerController? controller;
+    try {
+      await previousController?.dispose();
+      if (!mounted || loadId != _playerLoadId) return;
+
+      controller = VideoPlayerController.networkUrl(
         Uri.parse(primaryUrl),
         httpHeaders: const {
           "User-Agent": "bdtb for Android 12.41.7.1",
           "Referer": "https://tieba.baidu.com/",
         },
       );
+      _controller = controller;
 
       try {
-        await _controller!.initialize();
+        await controller.initialize();
       } catch (_) {
         // Fallback to alternate protocol (http vs https)
-        await _controller?.dispose();
-        _controller = VideoPlayerController.networkUrl(
+        if (!mounted ||
+            loadId != _playerLoadId ||
+            !identical(_controller, controller)) {
+          return;
+        }
+        await controller.dispose();
+        if (!mounted || loadId != _playerLoadId) return;
+        controller = VideoPlayerController.networkUrl(
           Uri.parse(fallbackUrl),
           httpHeaders: const {
             "User-Agent": "bdtb for Android 12.41.7.1",
             "Referer": "https://tieba.baidu.com/",
           },
         );
-        await _controller!.initialize();
+        _controller = controller;
+        await controller.initialize();
         _effectiveVideoUrl = fallbackUrl;
       }
 
-      if (startPosition != null && startPosition > Duration.zero) {
-        await _controller!.seekTo(startPosition);
+      if (!mounted ||
+          loadId != _playerLoadId ||
+          !identical(_controller, controller)) {
+        return;
       }
-      await _controller!.setPlaybackSpeed(_playbackSpeed);
+      if (startPosition != null && startPosition > Duration.zero) {
+        await controller.seekTo(startPosition);
+      }
+      if (!mounted ||
+          loadId != _playerLoadId ||
+          !identical(_controller, controller)) {
+        return;
+      }
+      await controller.setPlaybackSpeed(_playbackSpeed);
+      await controller.setVolume(_currentVolume);
 
       if (autoPlay) {
-        await _controller!.play();
+        await controller.play();
+      }
+      if (!mounted ||
+          loadId != _playerLoadId ||
+          !identical(_controller, controller)) {
+        return;
       }
 
-      _controller!.addListener(_onPlayerUpdate);
-
-      if (mounted) {
-        setState(() {
-          _isInitialized = true;
-        });
-      }
+      controller.addListener(_onPlayerUpdate);
+      setState(() => _isInitialized = true);
+      _resetControlsTimer();
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _hasError = true;
-          _isInitialized = false;
-        });
+      if (!mounted ||
+          loadId != _playerLoadId ||
+          !identical(_controller, controller)) {
+        return;
       }
+      setState(() {
+        _hasError = true;
+        _isInitialized = false;
+      });
     }
+  }
+
+  Future<void> _initDeviceLevels() async {
+    try {
+      final brightness = await _mediaChannel.invokeMethod<double>(
+        "getBrightness",
+      );
+      if (!mounted) return;
+      if (brightness != null) {
+        setState(() => _currentBrightness = brightness);
+      }
+    } catch (_) {}
   }
 
   void _onPlayerUpdate() {
@@ -261,7 +327,16 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
 
   @override
   void dispose() {
+    _playerLoadId++;
     _pressTimer?.cancel();
+    _hideControlsTimer?.cancel();
+    _hudDismissTimer?.cancel();
+    if (_isLandscape) _restorePortraitAndSystemUI();
+    if (_brightnessChanged) {
+      unawaited(
+        _mediaChannel.invokeMethod<void>("resetBrightness").catchError((_) {}),
+      );
+    }
     _controller?.removeListener(_onPlayerUpdate);
     _controller?.dispose();
     super.dispose();
@@ -272,10 +347,12 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
     HapticFeedbackUtil.light();
     if (_controller!.value.isPlaying) {
       _controller!.pause();
+      setState(() => _showControls = true);
     } else {
       _controller!.play();
+      setState(() {});
+      _resetControlsTimer();
     }
-    setState(() {});
   }
 
   void _startFastForward() {
@@ -288,48 +365,186 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
   }
 
   void _stopFastForward() {
-    if (_controller == null || !_isInitialized) return;
-    if (_isFastForwarding) {
-      HapticFeedbackUtil.light();
-      setState(() {
-        _isFastForwarding = false;
-      });
-      _controller!.setPlaybackSpeed(_playbackSpeed);
-    }
+    if (!_isFastForwarding) return;
+    HapticFeedbackUtil.light();
+    setState(() => _isFastForwarding = false);
+    _controller?.setPlaybackSpeed(_playbackSpeed);
   }
 
   void _handlePointerDown(PointerDownEvent event) {
     if (_controller == null || !_isInitialized) return;
-    _activePointers++;
+    if (!_isFastForwarding) _fastForwardGestureConsumed = false;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    if (event.localPosition.dx >= screenWidth * 0.45 &&
+        event.localPosition.dx <= screenWidth * 0.55) {
+      return;
+    }
+    _fastForwardPointers.add(event.pointer);
     _pressTimer?.cancel();
     // 按住超过 250ms 即进入 2.0X 快进模式
     _pressTimer = Timer(const Duration(milliseconds: 250), () {
-      if (_activePointers > 0 && mounted) {
+      if (_fastForwardPointers.isNotEmpty && mounted) {
+        _fastForwardGestureConsumed = true;
         _startFastForward();
       }
     });
   }
 
   void _handlePointerUp(PointerUpEvent event) {
-    _activePointers = (_activePointers - 1).clamp(0, 10);
-    _pressTimer?.cancel();
-    if (_isFastForwarding) {
-      // 松开手指立即恢复正常播放倍速
+    _fastForwardPointers.remove(event.pointer);
+    if (_fastForwardPointers.isEmpty) {
+      _pressTimer?.cancel();
       _stopFastForward();
-    } else if (_activePointers == 0) {
-      // 快速轻触 (< 250ms)：切换顶部与底部控制栏显隐
-      setState(() {
-        _showControls = !_showControls;
-      });
     }
   }
 
   void _handlePointerCancel(PointerCancelEvent event) {
-    _activePointers = (_activePointers - 1).clamp(0, 10);
-    _pressTimer?.cancel();
-    if (_isFastForwarding) {
+    _fastForwardPointers.remove(event.pointer);
+    if (_fastForwardPointers.isEmpty) {
+      _pressTimer?.cancel();
       _stopFastForward();
     }
+  }
+
+  void _toggleControls() {
+    setState(() => _showControls = !_showControls);
+    _resetControlsTimer();
+  }
+
+  void _resetControlsTimer() {
+    _hideControlsTimer?.cancel();
+    if (_showControls && _controller?.value.isPlaying == true) {
+      _hideControlsTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted && _controller?.value.isPlaying == true) {
+          setState(() => _showControls = false);
+        }
+      });
+    }
+  }
+
+  void _restorePortraitAndSystemUI() {
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
+  void _toggleOrientation() {
+    final nextLandscape = !_isLandscape;
+    setState(() => _isLandscape = nextLandscape);
+    if (nextLandscape) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeRight,
+        DeviceOrientation.landscapeLeft,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      _restorePortraitAndSystemUI();
+    }
+    _resetControlsTimer();
+  }
+
+  void _seekRelative(int deltaSeconds) {
+    final controller = _controller;
+    if (controller == null || !_isInitialized) return;
+    HapticFeedbackUtil.light();
+    final current = controller.value.position;
+    final duration = controller.value.duration;
+    final target = Duration(
+      seconds: (current.inSeconds + deltaSeconds).clamp(0, duration.inSeconds),
+    );
+    controller.seekTo(target);
+    _showHud(type: _HudType.seek, diff: deltaSeconds, target: target);
+  }
+
+  void _setBrightness(double value) {
+    _brightnessChanged = true;
+    _currentBrightness = value;
+    unawaited(
+      _mediaChannel
+          .invokeMethod<void>("setBrightness", {"brightness": value})
+          .catchError((_) {}),
+    );
+  }
+
+  void _setVolume(double value) {
+    _currentVolume = value;
+    final controller = _controller;
+    if (controller != null) unawaited(controller.setVolume(value));
+  }
+
+  void _showHud({
+    required _HudType type,
+    double value = 0,
+    int diff = 0,
+    Duration target = Duration.zero,
+    int autoDismissMs = 600,
+  }) {
+    _hudDismissTimer?.cancel();
+    setState(() {
+      _hudType = type;
+      _hudValue = value;
+      _hudSeekDiff = diff;
+      _targetSeekPosition = target;
+    });
+    if (autoDismissMs > 0) {
+      _hudDismissTimer = Timer(Duration(milliseconds: autoDismissMs), () {
+        if (mounted) setState(() => _hudType = _HudType.none);
+      });
+    }
+  }
+
+  void _onVerticalDragStart(DragStartDetails details) {
+    _panStartPosition = details.localPosition;
+    _dragMode = _DragMode.none;
+    _startBrightness = _currentBrightness;
+    _startVolume = _currentVolume;
+  }
+
+  void _onVerticalDragUpdate(
+    DragUpdateDetails details,
+    double screenWidth,
+    double screenHeight,
+  ) {
+    final dx = details.localPosition.dx - _panStartPosition.dx;
+    final dy = details.localPosition.dy - _panStartPosition.dy;
+    if (_dragMode == _DragMode.none && dy.abs() > 14 && dy.abs() > dx.abs()) {
+      _dragMode = _panStartPosition.dx < screenWidth / 2
+          ? _DragMode.brightness
+          : _DragMode.volume;
+    }
+
+    final delta = -dy / (screenHeight * 0.65);
+    if (_dragMode == _DragMode.brightness) {
+      final value = (_startBrightness + delta).clamp(0.01, 1.0);
+      _setBrightness(value);
+      _showHud(type: _HudType.brightness, value: value, autoDismissMs: 0);
+    } else if (_dragMode == _DragMode.volume) {
+      final value = (_startVolume + delta).clamp(0.0, 1.0);
+      _setVolume(value);
+      _showHud(type: _HudType.volume, value: value, autoDismissMs: 0);
+    }
+  }
+
+  void _onVerticalDragEnd() {
+    final type = _hudType;
+    _dragMode = _DragMode.none;
+    if (type != _HudType.none) _showHud(type: type, value: _hudValue);
+  }
+
+  Future<void> _shareVideo() async {
+    final threadId = widget.threadId;
+    if (threadId == null || threadId.isEmpty) {
+      AppToast.show(context, "暂无可分享的帖子链接");
+      return;
+    }
+    final title = widget.title?.trim().isNotEmpty == true
+        ? widget.title!.trim()
+        : "贴吧视频";
+    await ShareService.shareTextContent(
+      context,
+      text: "$title\nhttps://tieba.baidu.com/p/$threadId",
+      title: title,
+      fallbackMessage: "视频链接已复制到剪贴板",
+    );
   }
 
   void _showSpeedBottomSheet() {
@@ -463,16 +678,70 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
     return "$minutes:$seconds";
   }
 
+  Widget _buildGestureHud() {
+    final (icon, label, value) = switch (_hudType) {
+      _HudType.brightness => (
+        Icons.brightness_6_rounded,
+        "亮度 ${(_hudValue * 100).round()}%",
+        _hudValue,
+      ),
+      _HudType.volume => (
+        Icons.volume_up_rounded,
+        "音量 ${(_hudValue * 100).round()}%",
+        _hudValue,
+      ),
+      _HudType.seek => (
+        _hudSeekDiff >= 0 ? Icons.forward_10_rounded : Icons.replay_10_rounded,
+        "${_hudSeekDiff > 0 ? '+' : ''}$_hudSeekDiff 秒  ${_formatDuration(_targetSeekPosition)}",
+        null,
+      ),
+      _ => (Icons.play_arrow_rounded, "", null),
+    };
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 28),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+          if (value != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: 120,
+              child: LinearProgressIndicator(
+                value: value,
+                minHeight: 3,
+                backgroundColor: Colors.white24,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: _handlePointerDown,
-        onPointerUp: _handlePointerUp,
-        onPointerCancel: _handlePointerCancel,
-        child: Stack(
+    return PopScope(
+      canPop: !_isLandscape,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _isLandscape) _toggleOrientation();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
           alignment: Alignment.center,
           children: [
             // 1. 视频渲染层 (或加载指示)
@@ -516,6 +785,48 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
             else
               const Center(
                 child: CircularProgressIndicator(color: Colors.white70),
+              ),
+
+            if (_isInitialized && _controller != null)
+              Positioned.fill(
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: _handlePointerDown,
+                  onPointerUp: _handlePointerUp,
+                  onPointerCancel: _handlePointerCancel,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (details) {
+                      _lastTapDownPosition = details.localPosition;
+                    },
+                    onTap: () {
+                      if (_fastForwardGestureConsumed) return;
+                      _toggleControls();
+                    },
+                    onDoubleTapDown: (details) {
+                      _lastTapDownPosition = details.localPosition;
+                    },
+                    onDoubleTap: () {
+                      final x = _lastTapDownPosition.dx;
+                      final width = MediaQuery.sizeOf(context).width;
+                      if (x < width * 0.35) {
+                        _seekRelative(-10);
+                      } else if (x > width * 0.65) {
+                        _seekRelative(10);
+                      } else {
+                        _togglePlayPause();
+                      }
+                    },
+                    onVerticalDragStart: _onVerticalDragStart,
+                    onVerticalDragUpdate: (details) => _onVerticalDragUpdate(
+                      details,
+                      MediaQuery.sizeOf(context).width,
+                      MediaQuery.sizeOf(context).height,
+                    ),
+                    onVerticalDragEnd: (_) => _onVerticalDragEnd(),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
               ),
 
             // 2. 长按加速浮动指示胶囊 (按住才显示，松手秒隐藏)
@@ -606,7 +917,9 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
                             color: Colors.white,
                             size: 18,
                           ),
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: _isLandscape
+                              ? _toggleOrientation
+                              : () => Navigator.pop(context),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -641,6 +954,29 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
                           ],
                         ),
                       ),
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(
+                            Icons.share_rounded,
+                            color: Colors.white,
+                            size: 19,
+                          ),
+                          tooltip: "分享视频",
+                          onPressed: _shareVideo,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       // 右上角保存视频按钮
                       Container(
                         width: 38,
@@ -803,11 +1139,25 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
                               ),
                             ),
                           ),
+                          IconButton(
+                            tooltip: _isLandscape ? "退出横屏" : "横屏播放",
+                            icon: Icon(
+                              _isLandscape
+                                  ? Icons.fullscreen_exit_rounded
+                                  : Icons.fullscreen_rounded,
+                              color: Colors.white,
+                            ),
+                            onPressed: _toggleOrientation,
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
+              ),
+            if (_hudType != _HudType.none)
+              Positioned.fill(
+                child: IgnorePointer(child: Center(child: _buildGestureHud())),
               ),
           ],
         ),

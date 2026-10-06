@@ -159,8 +159,9 @@ class TiebaFloorModel {
     final List<PostContentSegment> contents = [];
     if (json['content'] is List) {
       for (var c in json['content']) {
-        if (c is Map<String, dynamic>)
+        if (c is Map<String, dynamic>) {
           contents.add(PostContentSegment.fromJson(c));
+        }
       }
     }
 
@@ -172,8 +173,9 @@ class TiebaFloorModel {
           int.tryParse(subMap['sub_post_number']?.toString() ?? '0') ?? 0;
       if (subMap['sub_post_list'] is List) {
         for (var s in subMap['sub_post_list']) {
-          if (s is Map<String, dynamic>)
+          if (s is Map<String, dynamic>) {
             subList.add(TiebaSubPostModel.fromJson(s, userMap: userMap));
+          }
         }
       }
     }

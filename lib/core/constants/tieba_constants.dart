@@ -6,9 +6,6 @@ class TiebaConstants {
   static const String defaultClientType = '2';
 
   static const String baseNativeUrl = 'https://c.tieba.baidu.com';
-  static const String baseWebUrl = 'https://tieba.baidu.com';
-  static const String baseProtobufUrl = 'https://tiebac.baidu.com';
-
   // Native Endpoints
   static const String pathLogin = '/c/s/login';
   static const String pathProfile = '/c/u/user/profile';
@@ -19,13 +16,11 @@ class TiebaConstants {
   static const String pathFloor = '/c/f/pb/floor';
   static const String pathFollowedForums = '/c/f/forum/getforumlist';
   static const String pathSearchPost = '/c/s/searchpost';
-  static const String pathSearchSug = '/c/s/searchsug';
   static const String pathAgree = '/c/c/agree/opAgree';
   static const String pathSign = '/c/c/forum/sign';
   static const String pathBatchSign = '/c/c/forum/msign';
   static const String pathUploadPicture = '/c/s/uploadPicture';
   static const String pathAddThread = '/c/c/thread/add';
-  static const String pathAddPost = '/c/c/post/add';
   static const String pathDelPost = '/c/c/bawu/delpost';
   static const String pathDelThread = '/c/c/bawu/delthread';
   static const String pathReplyMe = '/c/u/feed/replyme';
@@ -35,7 +30,6 @@ class TiebaConstants {
   static const String pathUnfollow = '/c/c/user/unfollow';
   static const String pathLikeForum = '/c/c/forum/like';
   static const String pathUnlikeForum = '/c/c/forum/unfavolike';
-  static const String pathDislike = '/c/c/excellent/submitDislike';
   static const String pathForumRuleDetail = '/c/f/forum/forumRuleDetail';
   static const String pathThreadStore = '/c/f/post/threadstore';
   static const String pathAddStore = '/c/c/post/addstore';

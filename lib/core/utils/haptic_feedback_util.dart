@@ -7,11 +7,12 @@ class HapticFeedbackUtil {
   static bool isEnabled = true;
   static int _lastTriggerTime = 0;
   static const int _cooldownMs = 250;
+  static const int _scrollTickCooldownMs = 12;
 
-  static bool _canTrigger() {
+  static bool _canTrigger({int cooldownMs = _cooldownMs}) {
     if (!isEnabled) return false;
     final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastTriggerTime < _cooldownMs) return false;
+    if (now - _lastTriggerTime < cooldownMs) return false;
     _lastTriggerTime = now;
     return true;
   }
@@ -22,6 +23,12 @@ class HapticFeedbackUtil {
 
   static void selection() {
     if (_canTrigger()) HapticFeedback.selectionClick();
+  }
+
+  static void selectionTick() {
+    if (_canTrigger(cooldownMs: _scrollTickCooldownMs)) {
+      HapticFeedback.selectionClick();
+    }
   }
 
   static void medium() {
@@ -36,9 +43,7 @@ class HapticFeedbackUtil {
 class HapticSplashFactory extends InteractiveInkFeatureFactory {
   final InteractiveInkFeatureFactory delegate;
 
-  const HapticSplashFactory({
-    this.delegate = InkSplash.splashFactory,
-  });
+  const HapticSplashFactory({this.delegate = InkSplash.splashFactory});
 
   @override
   InteractiveInkFeature create({

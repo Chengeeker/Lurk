@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.Settings
 import android.webkit.CookieManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -62,6 +63,40 @@ class MainActivity : FlutterActivity() {
                         } catch (e: Exception) {
                             result.error("SHARE_ERROR", e.message, null)
                         }
+                    }
+                    "setBrightness" -> {
+                        try {
+                            val brightness = call.argument<Double>("brightness")
+                                ?.toFloat()?.coerceIn(0.01f, 1.0f) ?: 0.5f
+                            val attributes = window.attributes
+                            attributes.screenBrightness = brightness
+                            window.attributes = attributes
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("BRIGHTNESS_ERROR", e.message, null)
+                        }
+                    }
+                    "getBrightness" -> {
+                        val brightness = window.attributes.screenBrightness
+                        val value = if (brightness < 0f) {
+                            try {
+                                Settings.System.getInt(
+                                    contentResolver,
+                                    Settings.System.SCREEN_BRIGHTNESS,
+                                ) / 255.0
+                            } catch (_: Exception) {
+                                0.5
+                            }
+                        } else {
+                            brightness.toDouble()
+                        }
+                        result.success(value)
+                    }
+                    "resetBrightness" -> {
+                        val attributes = window.attributes
+                        attributes.screenBrightness = -1f
+                        window.attributes = attributes
+                        result.success(true)
                     }
                     "saveImageToGallery" -> {
                         val bytes = call.argument<ByteArray>("bytes")
