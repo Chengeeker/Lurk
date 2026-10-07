@@ -1,24 +1,260 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderClipRRect, RenderImage;
 
 import '../../../../core/services/media_save_service.dart';
 import '../../../../core/utils/haptic_feedback_util.dart';
 import '../../../../core/constants/tieba_constants.dart';
 import '../../../../core/widgets/app_network_image.dart';
 
+@immutable
+class ImageGalleryHeroTag {
+  const ImageGalleryHeroTag({
+    required this.scope,
+    required this.index,
+    required this.mediaIdentity,
+    this.thumbnailUsesCover = true,
+  });
+
+  final Object scope;
+  final int index;
+  final String mediaIdentity;
+  final bool thumbnailUsesCover;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ImageGalleryHeroTag &&
+      other.scope == scope &&
+      other.index == index &&
+      other.mediaIdentity == mediaIdentity;
+
+  @override
+  int get hashCode => Object.hash(scope, index, mediaIdentity);
+}
+
+Widget imageGalleryHeroFlightShuttleBuilder(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection flightDirection,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  final fromHero = fromHeroContext.widget as Hero;
+  final toHero = toHeroContext.widget as Hero;
+  if (flightDirection != HeroFlightDirection.pop) return toHero.child;
+
+  final tag = fromHero.tag;
+  final target = toHeroContext.findRenderObject();
+  if (tag is! ImageGalleryHeroTag ||
+      !tag.thumbnailUsesCover ||
+      target is! RenderBox ||
+      !target.hasSize ||
+      target.size.width <= 0 ||
+      target.size.height <= 0) {
+    return fromHero.child;
+  }
+
+  final sourceGeometry = _HeroImageGeometry.capture(fromHeroContext);
+  final targetGeometry = _HeroImageGeometry.capture(toHeroContext);
+  if (sourceGeometry == null || targetGeometry == null) return fromHero.child;
+  return _HeroReturnImageMorph(
+    animation: animation,
+    image: sourceGeometry.image.clone(),
+    source: sourceGeometry,
+    target: targetGeometry,
+  );
+}
+
+class _HeroImageGeometry {
+  const _HeroImageGeometry(this.image, this.rect, this.radius);
+
+  final ui.Image image;
+  final Rect rect;
+  final BorderRadius radius;
+
+  static _HeroImageGeometry? capture(BuildContext context) {
+    final root = context.findRenderObject();
+    if (root is! RenderBox || !root.hasSize) return null;
+
+    final direction = Directionality.of(context);
+    _HeroImageGeometry? result;
+    var radius = BorderRadius.zero;
+    void visit(RenderObject object) {
+      if (result != null) return;
+      if (object is RenderClipRRect) {
+        radius = object.borderRadius.resolve(direction);
+      }
+
+      ui.Image? image;
+      BoxFit? fit;
+      AlignmentGeometry alignment = Alignment.center;
+      Rect? gestureRect;
+      if (object is ExtendedRenderImage) {
+        image = object.image;
+        fit = object.fit;
+        alignment = object.alignment;
+        final gesture = object.gestureDetails;
+        if (gesture?.destinationRect != null && gesture?.layoutRect != null) {
+          gestureRect = gesture!.destinationRect!.shift(
+            -gesture.layoutRect!.topLeft,
+          );
+        }
+      } else if (object is RenderImage) {
+        image = object.image;
+        fit = object.fit;
+        alignment = object.alignment;
+      }
+
+      if (image != null && object is RenderBox && object.hasSize) {
+        final pixels = Size(image.width.toDouble(), image.height.toDouble());
+        final align = alignment.resolve(direction);
+        final fitted = applyBoxFit(
+          fit ?? BoxFit.scaleDown,
+          pixels,
+          object.size,
+        );
+        final crop = align.inscribe(fitted.source, Offset.zero & pixels);
+        final painted =
+            gestureRect ??
+            align.inscribe(fitted.destination, Offset.zero & object.size);
+        final scaleX = painted.width / crop.width;
+        final scaleY = painted.height / crop.height;
+        final fullImage = Rect.fromLTWH(
+          painted.left - crop.left * scaleX,
+          painted.top - crop.top * scaleY,
+          pixels.width * scaleX,
+          pixels.height * scaleY,
+        );
+        result = _HeroImageGeometry(
+          image,
+          MatrixUtils.transformRect(object.getTransformTo(root), fullImage),
+          radius,
+        );
+        return;
+      }
+      object.visitChildren(visit);
+    }
+
+    visit(root);
+    return result;
+  }
+}
+
+class _HeroReturnImageMorph extends StatefulWidget {
+  const _HeroReturnImageMorph({
+    required this.animation,
+    required this.image,
+    required this.source,
+    required this.target,
+  });
+
+  final Animation<double> animation;
+  final ui.Image image;
+  final _HeroImageGeometry source;
+  final _HeroImageGeometry target;
+
+  @override
+  State<_HeroReturnImageMorph> createState() => _HeroReturnImageMorphState();
+}
+
+class _HeroReturnImageMorphState extends State<_HeroReturnImageMorph> {
+  @override
+  void dispose() {
+    widget.image.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    key: const ValueKey('gallery-return-image-plane'),
+    painter: _HeroReturnPainter(
+      widget.image,
+      widget.animation,
+      widget.source,
+      widget.target,
+    ),
+    child: const SizedBox.expand(),
+  );
+}
+
+class _HeroReturnPainter extends CustomPainter {
+  _HeroReturnPainter(this.image, this.animation, this.source, this.target)
+    : super(repaint: animation);
+
+  final ui.Image image;
+  final Animation<double> animation;
+  final _HeroImageGeometry source;
+  final _HeroImageGeometry target;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final progress = (1 - animation.value).clamp(0.0, 1.0);
+    final imageRect = Rect.lerp(source.rect, target.rect, progress)!;
+    final radius = BorderRadius.lerp(source.radius, target.radius, progress)!;
+    canvas.save();
+    canvas.clipRRect(radius.toRRect(Offset.zero & size));
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+      imageRect,
+      Paint()..filterQuality = FilterQuality.low,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeroReturnPainter oldDelegate) =>
+      oldDelegate.image != image ||
+      oldDelegate.source != source ||
+      oldDelegate.target != target ||
+      oldDelegate.animation != animation;
+}
+
+class ImageGalleryHeroThumbnail extends StatelessWidget {
+  const ImageGalleryHeroThumbnail({
+    super.key,
+    required this.scope,
+    required this.index,
+    required this.mediaIdentity,
+    required this.child,
+    this.thumbnailUsesCover = true,
+  });
+
+  final Object scope;
+  final int index;
+  final String mediaIdentity;
+  final Widget child;
+  final bool thumbnailUsesCover;
+
+  @override
+  Widget build(BuildContext context) => Hero(
+    tag: ImageGalleryHeroTag(
+      scope: scope,
+      index: index,
+      mediaIdentity: mediaIdentity,
+      thumbnailUsesCover: thumbnailUsesCover,
+    ),
+    flightShuttleBuilder: imageGalleryHeroFlightShuttleBuilder,
+    child: child,
+  );
+}
+
 class ImageGalleryPage extends StatefulWidget {
   final List<String> images;
   final int initialIndex;
   final String? folderName;
+  final Object? heroScope;
 
   const ImageGalleryPage({
     super.key,
     required this.images,
     this.initialIndex = 0,
     this.folderName,
+    this.heroScope,
   });
 
   static void open(
@@ -26,16 +262,23 @@ class ImageGalleryPage extends StatefulWidget {
     required List<String> images,
     int initialIndex = 0,
     String? folderName,
+    Object? heroScope,
   }) {
     Navigator.push(
       context,
       PageRouteBuilder(
         opaque: false,
+        barrierColor: Colors.black,
+        transitionDuration: const Duration(milliseconds: 220),
+        reverseTransitionDuration: const Duration(milliseconds: 200),
         pageBuilder: (context, _, __) => ImageGalleryPage(
           images: images,
           initialIndex: initialIndex,
           folderName: folderName,
+          heroScope: heroScope,
         ),
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
       ),
     );
   }
@@ -44,14 +287,20 @@ class ImageGalleryPage extends StatefulWidget {
   State<ImageGalleryPage> createState() => _ImageGalleryPageState();
 }
 
-class _ImageGalleryPageState extends State<ImageGalleryPage> {
+class _ImageGalleryPageState extends State<ImageGalleryPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _doubleTapController;
+  Animation<double>? _doubleTapAnimation;
+  VoidCallback? _doubleTapListener;
   late int _currentIndex;
   late ExtendedPageController _pageController;
   late PageController _thumbnailController;
+  Animation<double>? _routeAnimation;
   bool _thumbnailUserScrolling = false;
   bool _thumbnailSettling = false;
   int _thumbnailSyncEpoch = 0;
   bool _showChrome = true;
+  bool _routeTransitionComplete = false;
 
   @override
   void initState() {
@@ -62,16 +311,87 @@ class _ImageGalleryPageState extends State<ImageGalleryPage> {
       initialPage: widget.initialIndex,
       viewportFraction: 0.16,
     )..addListener(_syncMainPageToThumbnail);
+    _doubleTapController = AnimationController(
+      duration: const Duration(milliseconds: 260),
+      vsync: this,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final routeAnimation = ModalRoute.of(context)?.animation;
+    if (identical(routeAnimation, _routeAnimation)) return;
+    _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
+    _routeAnimation = routeAnimation;
+    _routeTransitionComplete =
+        routeAnimation?.status == AnimationStatus.completed;
+    routeAnimation?.addStatusListener(_handleRouteAnimationStatus);
+  }
+
+  void _handleRouteAnimationStatus(AnimationStatus status) {
+    final complete = status == AnimationStatus.completed;
+    if (complete == _routeTransitionComplete) return;
+    setState(() => _routeTransitionComplete = complete);
   }
 
   @override
   void dispose() {
     _thumbnailSyncEpoch++;
+    _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
     _thumbnailController
       ..removeListener(_syncMainPageToThumbnail)
       ..dispose();
     _pageController.dispose();
+    if (_doubleTapListener != null) {
+      _doubleTapAnimation?.removeListener(_doubleTapListener!);
+    }
+    _doubleTapController.dispose();
     super.dispose();
+  }
+
+  void _animateDoubleTap(ExtendedImageGestureState state) {
+    final pointerPosition = state.pointerDownPosition;
+    final currentScale = state.gestureDetails?.totalScale ?? 1.0;
+    final targetScale = currentScale <= 1.05
+        ? 2.5
+        : currentScale <= 3.6
+        ? 6.0
+        : 1.0;
+
+    _doubleTapController
+      ..stop()
+      ..reset();
+    if (_doubleTapListener != null) {
+      _doubleTapAnimation?.removeListener(_doubleTapListener!);
+    }
+    _doubleTapAnimation = Tween<double>(begin: currentScale, end: targetScale)
+        .animate(
+          CurvedAnimation(
+            parent: _doubleTapController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
+    _doubleTapListener = () => state.handleDoubleTap(
+      scale: _doubleTapAnimation!.value,
+      doubleTapPosition: pointerPosition,
+    );
+    _doubleTapAnimation!.addListener(_doubleTapListener!);
+    _doubleTapController.forward();
+  }
+
+  Widget _withGalleryHero(int index, Widget child) {
+    final scope = widget.heroScope;
+    if (scope == null || index != _currentIndex) return child;
+    return Hero(
+      tag: ImageGalleryHeroTag(
+        scope: scope,
+        index: index,
+        mediaIdentity: widget.images[index],
+      ),
+      flightShuttleBuilder: imageGalleryHeroFlightShuttleBuilder,
+      child: child,
+    );
   }
 
   void _handleGalleryTap(TapUpDetails details) {
@@ -228,235 +548,243 @@ class _ImageGalleryPageState extends State<ImageGalleryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapUp: _handleGalleryTap,
-        child: Stack(
-          children: [
-            NotificationListener<ScrollStartNotification>(
-              onNotification: (notification) {
-                if (notification.depth == 0 &&
-                    notification.dragDetails != null) {
-                  _thumbnailSyncEpoch++;
-                  _thumbnailUserScrolling = false;
-                  _thumbnailSettling = false;
-                }
-                return false;
-              },
-              child: ExtendedImageGesturePageView.builder(
-                controller: _pageController,
-                physics: const BouncingScrollPhysics(),
-                itemCount: widget.images.length,
-                onPageChanged: (i) {
-                  if (i != _currentIndex) {
-                    if (_thumbnailUserScrolling) {
-                      HapticFeedbackUtil.selectionTick();
-                    } else if (!_thumbnailSettling) {
-                      HapticFeedbackUtil.selection();
-                    }
+    return ExtendedImageSlidePage(
+      slideAxis: SlideAxis.horizontal,
+      slideType: SlideType.onlyImage,
+      slidePageBackgroundHandler: (offset, pageSize) => Colors.black.withValues(
+        alpha: math.max(0.0, 1.0 - offset.dx.abs() / (pageSize.width / 2)),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapUp: _handleGalleryTap,
+          child: Stack(
+            children: [
+              NotificationListener<ScrollStartNotification>(
+                onNotification: (notification) {
+                  if (notification.depth == 0 &&
+                      notification.dragDetails != null) {
+                    _thumbnailSyncEpoch++;
+                    _thumbnailUserScrolling = false;
+                    _thumbnailSettling = false;
                   }
-                  setState(() => _currentIndex = i);
-                  if (!_thumbnailUserScrolling &&
-                      !_thumbnailSettling &&
-                      _thumbnailController.hasClients) {
-                    _thumbnailController.jumpToPage(i);
-                  }
+                  return false;
                 },
-                itemBuilder: (context, index) {
-                  final url = AppNetworkImage.safeUrl(widget.images[index]);
-                  return ExtendedImage.network(
-                    url,
-                    fit: BoxFit.contain,
-                    mode: ExtendedImageMode.gesture,
-                    cache: true,
-                    headers: {'User-Agent': TiebaConstants.defaultUserAgent},
-                    onDoubleTap: (state) {
-                      final currentScale =
-                          state.gestureDetails?.totalScale ?? 1.0;
-                      final targetScale = currentScale > 1.01 ? 1.0 : 2.0;
-                      state.handleDoubleTap(
-                        scale: targetScale,
-                        doubleTapPosition: state.pointerDownPosition,
-                      );
-                    },
-                    initGestureConfigHandler: (state) {
-                      return GestureConfig(
-                        minScale: 1.0,
-                        animationMinScale: 1.0,
-                        maxScale: 3.5,
-                        animationMaxScale: 4.0,
-                        speed: 1.0,
-                        inertialSpeed: 100.0,
-                        initialScale: 1.0,
-                        inPageView: true,
-                      );
-                    },
-                    loadStateChanged: (state) {
-                      switch (state.extendedImageLoadState) {
-                        case LoadState.loading:
-                          return const Center(
-                            child: SizedBox(
-                              width: 32,
-                              height: 32,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white70,
+                child: ExtendedImageGesturePageView.builder(
+                  controller: _pageController,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: widget.images.length,
+                  onPageChanged: (i) {
+                    if (i != _currentIndex) {
+                      if (_thumbnailUserScrolling) {
+                        HapticFeedbackUtil.selectionTick();
+                      } else if (!_thumbnailSettling) {
+                        HapticFeedbackUtil.selection();
+                      }
+                    }
+                    setState(() => _currentIndex = i);
+                    if (!_thumbnailUserScrolling &&
+                        !_thumbnailSettling &&
+                        _thumbnailController.hasClients) {
+                      _thumbnailController.jumpToPage(i);
+                    }
+                  },
+                  itemBuilder: (context, index) {
+                    final url = AppNetworkImage.safeUrl(widget.images[index]);
+                    final image = ExtendedImage.network(
+                      url,
+                      fit: BoxFit.contain,
+                      mode: ExtendedImageMode.gesture,
+                      cache: true,
+                      headers: {'User-Agent': TiebaConstants.defaultUserAgent},
+                      onDoubleTap: (state) {
+                        _animateDoubleTap(state);
+                      },
+                      enableSlideOutPage: false,
+                      initGestureConfigHandler: (state) {
+                        return GestureConfig(
+                          minScale: 1.0,
+                          animationMinScale: 1.0,
+                          maxScale: 8.0,
+                          animationMaxScale: 9.0,
+                          speed: 1.0,
+                          inertialSpeed: 120.0,
+                          initialScale: 1.0,
+                          inPageView: true,
+                          initialAlignment: InitialAlignment.center,
+                        );
+                      },
+                      loadStateChanged: (state) {
+                        switch (state.extendedImageLoadState) {
+                          case LoadState.loading:
+                            return const Center(
+                              child: SizedBox(
+                                width: 32,
+                                height: 32,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white70,
+                                  ),
                                 ),
                               ),
+                            );
+                          case LoadState.failed:
+                            return Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.broken_image_rounded,
+                                    size: 40,
+                                    color: Colors.white54,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    '图片加载失败',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  OutlinedButton.icon(
+                                    onPressed: () => state.reLoadImage(),
+                                    icon: const Icon(
+                                      Icons.refresh_rounded,
+                                      size: 16,
+                                      color: Colors.white,
+                                    ),
+                                    label: const Text(
+                                      '点击重试',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(
+                                        color: Colors.white38,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          case LoadState.completed:
+                            return null;
+                        }
+                      },
+                    );
+                    return _withGalleryHero(index, image);
+                  },
+                ),
+              ),
+              if (widget.images.length > 1)
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: MediaQuery.paddingOf(context).bottom + 32,
+                  child: IgnorePointer(
+                    ignoring: !_showChrome || !_routeTransitionComplete,
+                    child: AnimatedOpacity(
+                      opacity: _showChrome && _routeTransitionComplete ? 1 : 0,
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOut,
+                      child: _buildThumbnailStrip(),
+                    ),
+                  ),
+                ),
+              if (_showChrome && _routeTransitionComplete)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + 8,
+                      left: 16,
+                      right: 16,
+                      bottom: 24,
+                    ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black87,
+                          Colors.black38,
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _GalleryGlassIconButton(
+                          tooltip: '关闭',
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        if (widget.images.length > 1)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
                             ),
-                          );
-                        case LoadState.failed:
-                          return Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.broken_image_rounded,
-                                  size: 40,
-                                  color: Colors.white54,
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  '图片加载失败',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                OutlinedButton.icon(
-                                  onPressed: () => state.reLoadImage(),
-                                  icon: const Icon(
-                                    Icons.refresh_rounded,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                  label: const Text(
-                                    '点击重试',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(
-                                      color: Colors.white38,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.25),
+                                width: 0.8,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.4),
+                                  blurRadius: 8,
                                 ),
                               ],
                             ),
-                          );
-                        case LoadState.completed:
-                          return null;
-                      }
-                    },
-                  );
-                },
-              ),
-            ),
-            if (widget.images.length > 1)
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: MediaQuery.paddingOf(context).bottom + 32,
-                child: Visibility(
-                  visible: _showChrome,
-                  maintainState: true,
-                  child: _buildThumbnailStrip(),
-                ),
-              ),
-            if (_showChrome)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top + 8,
-                    left: 16,
-                    right: 16,
-                    bottom: 24,
-                  ),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black87,
-                        Colors.black38,
-                        Colors.transparent,
+                            child: Text(
+                              '${_currentIndex + 1} / ${widget.images.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        _GalleryGlassIconButton(
+                          tooltip: '保存图片',
+                          icon: const Icon(
+                            Icons.download_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                          onPressed: () {
+                            if (widget.images.isNotEmpty) {
+                              final currentUrl = widget.images[_currentIndex];
+                              MediaSaveService.saveImage(
+                                context,
+                                currentUrl,
+                                folderName: widget.folderName,
+                              );
+                            }
+                          },
+                        ),
                       ],
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _GalleryGlassIconButton(
-                        tooltip: '关闭',
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      if (widget.images.length > 1)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.55),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.25),
-                              width: 0.8,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.4),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            '${_currentIndex + 1} / ${widget.images.length}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      _GalleryGlassIconButton(
-                        tooltip: '保存图片',
-                        icon: const Icon(
-                          Icons.download_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                        onPressed: () {
-                          if (widget.images.isNotEmpty) {
-                            final currentUrl = widget.images[_currentIndex];
-                            MediaSaveService.saveImage(
-                              context,
-                              currentUrl,
-                              folderName: widget.folderName,
-                            );
-                          }
-                        },
-                      ),
-                    ],
-                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

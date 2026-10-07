@@ -6,7 +6,7 @@ import '../../../detail/presentation/widgets/image_gallery_page.dart';
 import '../../data/models/tieba_thread_model.dart';
 import 'tieba_video_player_page.dart';
 
-class NineGridView extends StatelessWidget {
+class NineGridView extends StatefulWidget {
   final List<TiebaMediaModel> mediaList;
   final String? threadId;
   final String? folderName;
@@ -17,6 +17,9 @@ class NineGridView extends StatelessWidget {
     this.threadId,
     this.folderName,
   });
+
+  @override
+  State<NineGridView> createState() => _NineGridViewState();
 
   bool _isVideoMedia(TiebaMediaModel m) {
     if (m.type == 'video') return true;
@@ -39,9 +42,14 @@ class NineGridView extends StatelessWidget {
     if (m.bigCdnUrl.contains('.mp4')) return m.bigCdnUrl;
     return '';
   }
+}
+
+class _NineGridViewState extends State<NineGridView> {
+  final Object _heroScope = Object();
 
   @override
   Widget build(BuildContext context) {
+    final mediaList = widget.mediaList;
     if (mediaList.isEmpty) return const SizedBox.shrink();
 
     final count = mediaList.length;
@@ -54,7 +62,32 @@ class NineGridView extends StatelessWidget {
       final displayUrl = media.originUrl.isNotEmpty
           ? media.originUrl
           : media.bigCdnUrl;
-      final isVideo = _isVideoMedia(media);
+      final isVideo = widget._isVideoMedia(media);
+      final thumbnail = Stack(
+        alignment: Alignment.center,
+        children: [
+          AppNetworkImage(
+            url: displayUrl,
+            fit: BoxFit.cover,
+            constraints: const BoxConstraints(maxHeight: 280, maxWidth: 300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          if (isVideo)
+            Container(
+              width: 48,
+              height: 48,
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 32,
+              ),
+            ),
+        ],
+      );
 
       return GestureDetector(
         onTap: () {
@@ -64,11 +97,11 @@ class NineGridView extends StatelessWidget {
               context,
               MaterialPageRoute(
                 builder: (_) => TiebaVideoPlayerPage(
-                  videoUrl: _resolveVideoUrl(media),
+                  videoUrl: widget._resolveVideoUrl(media),
                   coverUrl: media.thumbUrl.isNotEmpty
                       ? media.thumbUrl
                       : displayUrl,
-                  threadId: threadId,
+                  threadId: widget.threadId,
                 ),
               ),
             );
@@ -77,35 +110,19 @@ class NineGridView extends StatelessWidget {
               context,
               images: images,
               initialIndex: 0,
-              folderName: folderName,
+              folderName: widget.folderName,
+              heroScope: _heroScope,
             );
           }
         },
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            AppNetworkImage(
-              url: displayUrl,
-              fit: BoxFit.cover,
-              constraints: const BoxConstraints(maxHeight: 280, maxWidth: 300),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            if (isVideo)
-              Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
-                  color: Colors.white,
-                  size: 32,
-                ),
+        child: isVideo
+            ? thumbnail
+            : ImageGalleryHeroThumbnail(
+                scope: _heroScope,
+                index: 0,
+                mediaIdentity: images[0],
+                child: thumbnail,
               ),
-          ],
-        ),
       );
     }
 
@@ -126,7 +143,7 @@ class NineGridView extends StatelessWidget {
         final displayUrl = media.bigCdnUrl.isNotEmpty
             ? media.bigCdnUrl
             : (media.originUrl.isNotEmpty ? media.originUrl : media.thumbUrl);
-        final isVideo = _isVideoMedia(media);
+        final isVideo = widget._isVideoMedia(media);
 
         return GestureDetector(
           onTap: () {
@@ -136,11 +153,11 @@ class NineGridView extends StatelessWidget {
                 context,
                 MaterialPageRoute(
                   builder: (_) => TiebaVideoPlayerPage(
-                    videoUrl: _resolveVideoUrl(media),
+                    videoUrl: widget._resolveVideoUrl(media),
                     coverUrl: media.thumbUrl.isNotEmpty
                         ? media.thumbUrl
                         : displayUrl,
-                    threadId: threadId,
+                    threadId: widget.threadId,
                   ),
                 ),
               );
@@ -149,37 +166,55 @@ class NineGridView extends StatelessWidget {
                 context,
                 images: images,
                 initialIndex: index,
-                folderName: folderName,
+                folderName: widget.folderName,
+                heroScope: _heroScope,
               );
             }
           },
-          child: Stack(
-            alignment: Alignment.center,
-            fit: StackFit.expand,
-            children: [
-              AppNetworkImage(
-                url: displayUrl,
-                fit: BoxFit.cover,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              if (isVideo)
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      color: Colors.black54,
-                      shape: BoxShape.circle,
+          child: isVideo
+              ? Stack(
+                  alignment: Alignment.center,
+                  fit: StackFit.expand,
+                  children: [
+                    AppNetworkImage(
+                      url: displayUrl,
+                      fit: BoxFit.cover,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.play_arrow_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+                    if (isVideo)
+                      Center(
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                  ],
+                )
+              : ImageGalleryHeroThumbnail(
+                  scope: _heroScope,
+                  index: index,
+                  mediaIdentity: images[index],
+                  child: Stack(
+                    alignment: Alignment.center,
+                    fit: StackFit.expand,
+                    children: [
+                      AppNetworkImage(
+                        url: displayUrl,
+                        fit: BoxFit.cover,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
         );
       },
     );

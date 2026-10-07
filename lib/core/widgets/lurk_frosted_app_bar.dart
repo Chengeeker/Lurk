@@ -98,6 +98,14 @@ class LurkFrostedAppBar extends StatelessWidget implements PreferredSizeWidget {
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: DecoratedBox(
             decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  baseColor.withValues(alpha: 0.90),
+                  baseColor.withValues(alpha: 0.40),
+                ],
+              ),
               border: Border(
                 bottom: BorderSide(
                   color: theme.colorScheme.outlineVariant.withValues(
@@ -117,7 +125,7 @@ class LurkFrostedAppBar extends StatelessWidget implements PreferredSizeWidget {
       notificationPredicate: notificationPredicate,
       shadowColor: shadowColor,
       shape: shape,
-      backgroundColor: baseColor.withValues(alpha: 0.82),
+      backgroundColor: baseColor.withValues(alpha: 0.45),
       surfaceTintColor: Colors.transparent,
       foregroundColor: foregroundColor,
       iconTheme: iconTheme,

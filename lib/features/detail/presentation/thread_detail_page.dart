@@ -41,6 +41,7 @@ class ThreadDetailPage extends ConsumerStatefulWidget {
 }
 
 class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
+  final Object _imageGalleryHeroScope = Object();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _mainArticleKey = GlobalKey();
   final Map<String, GlobalKey> _floorKeys = {};
@@ -984,13 +985,20 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                         images: imageUrls,
                         initialIndex: i,
                         folderName: widget.thread.author.displayName,
+                        heroScope: _imageGalleryHeroScope,
                       );
                     },
-                    child: AppNetworkImage(
-                      url: imageUrls[i],
-                      fit: BoxFit.contain,
-                      constraints: const BoxConstraints(maxHeight: 400),
-                      borderRadius: BorderRadius.circular(12),
+                    child: ImageGalleryHeroThumbnail(
+                      scope: _imageGalleryHeroScope,
+                      index: i,
+                      mediaIdentity: imageUrls[i],
+                      thumbnailUsesCover: false,
+                      child: AppNetworkImage(
+                        url: imageUrls[i],
+                        fit: BoxFit.contain,
+                        constraints: const BoxConstraints(maxHeight: 400),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
