@@ -461,17 +461,20 @@ class FloorItem extends ConsumerWidget {
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 4),
                               child: GestureDetector(
-                                onTap: () => ImageGalleryPage.open(
-                                  context,
-                                  images: imageUrls,
-                                  initialIndex: currentIdx.clamp(
-                                    0,
-                                    imageUrls.isEmpty
-                                        ? 0
-                                        : imageUrls.length - 1,
-                                  ),
-                                  folderName: floor.author.displayName,
-                                ),
+                                onTap: () {
+                                  HapticFeedbackUtil.light();
+                                  ImageGalleryPage.open(
+                                    context,
+                                    images: imageUrls,
+                                    initialIndex: currentIdx.clamp(
+                                      0,
+                                      imageUrls.isEmpty
+                                          ? 0
+                                          : imageUrls.length - 1,
+                                    ),
+                                    folderName: floor.author.displayName,
+                                  );
+                                },
                                 child: AppNetworkImage(
                                   url: displayUrl,
                                   fit: BoxFit.cover,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/utils/haptic_feedback_util.dart';
 import '../../../../core/widgets/app_network_image.dart';
 import '../../../detail/presentation/widgets/image_gallery_page.dart';
 import '../../data/models/tieba_thread_model.dart';
@@ -57,6 +58,7 @@ class NineGridView extends StatelessWidget {
 
       return GestureDetector(
         onTap: () {
+          HapticFeedbackUtil.light();
           if (isVideo) {
             Navigator.push(
               context,
@@ -128,6 +130,7 @@ class NineGridView extends StatelessWidget {
 
         return GestureDetector(
           onTap: () {
+            HapticFeedbackUtil.light();
             if (isVideo) {
               Navigator.push(
                 context,

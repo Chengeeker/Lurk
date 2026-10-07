@@ -375,6 +375,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
                           GestureDetector(
                             onTap: () {
                               if (portrait.isNotEmpty) {
+                                HapticFeedbackUtil.light();
                                 ImageGalleryPage.open(
                                   context,
                                   images: [portrait],
