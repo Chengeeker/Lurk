@@ -96,30 +96,37 @@ class LurkFrostedAppBar extends StatelessWidget implements PreferredSizeWidget {
       flexibleSpace: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  baseColor.withValues(alpha: 0.90),
-                  baseColor.withValues(alpha: 0.40),
-                ],
-              ),
-              border: Border(
-                bottom: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.24,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (flexibleSpace != null) flexibleSpace!,
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      baseColor.withValues(alpha: 0.95),
+                      baseColor.withValues(alpha: 0),
+                    ],
                   ),
-                  width: 0.5,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.24,
+                      ),
+                      width: 0.5,
+                    ),
+                  ),
                 ),
+                child: const SizedBox.expand(),
               ),
-            ),
-            child: flexibleSpace ?? const SizedBox.expand(),
+            ],
           ),
         ),
       ),
       bottom: bottom,
+      forceMaterialTransparency: false,
       elevation: elevation ?? 0,
       scrolledUnderElevation: scrolledUnderElevation ?? 0,
       notificationPredicate: notificationPredicate,

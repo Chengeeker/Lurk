@@ -73,9 +73,20 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
           : _floorKeys[targetPostId];
       final targetContext = key?.currentContext;
       if (targetContext == null) return;
+      var alignment = 0.08;
+      if (_scrollController.hasClients) {
+        final viewportHeight = _scrollController.position.viewportDimension;
+        final topChromeHeight =
+            MediaQuery.paddingOf(context).top + kToolbarHeight;
+        alignment =
+            ((topChromeHeight + (viewportHeight - topChromeHeight) * 0.08) /
+                    viewportHeight)
+                .clamp(0.0, 1.0)
+                .toDouble();
+      }
       Scrollable.ensureVisible(
         targetContext,
-        alignment: 0.08,
+        alignment: alignment,
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeOutCubic,
       );
@@ -360,6 +371,7 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
     _scheduleTargetPostScroll(detailState);
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: LurkFrostedAppBar(
         centerTitle: true,
         title: forumName.isNotEmpty
@@ -410,6 +422,11 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
           child: CustomScrollView(
             controller: _scrollController,
             slivers: [
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: MediaQuery.paddingOf(context).top + kToolbarHeight,
+                ),
+              ),
               // 1. LZ Article Post Hero Card (楼主正文卡片)
               SliverToBoxAdapter(
                 key: _mainArticleKey,
