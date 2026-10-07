@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../core/utils/spring_page_route.dart';
+import '../../../core/widgets/app_section_card.dart';
 import 'block_words_manager_page.dart';
 import 'providers/block_settings_provider.dart';
 
@@ -27,7 +28,7 @@ class BlockSettingsPage extends ConsumerWidget {
         ),
         title: const Text(
           '屏蔽设置',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
         centerTitle: false,
       ),
@@ -39,30 +40,20 @@ class BlockSettingsPage extends ConsumerWidget {
             child: Text(
               '内容过滤与屏蔽',
               style: TextStyle(
-                color: colorScheme.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
               ),
             ),
           ),
-          Card(
-            elevation: 0,
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.08),
-                width: 0.8,
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
+          AppSectionCard(
             child: Column(
               children: [
                 ListTile(
                   leading: Icon(
                     Icons.filter_alt_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     '屏蔽词管理',
@@ -88,15 +79,11 @@ class BlockSettingsPage extends ConsumerWidget {
                 SwitchListTile(
                   secondary: Icon(
                     Icons.visibility_off_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     '彻底隐藏被屏蔽的内容',
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '开启后被屏蔽内容直接不显示，不留占位符',
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: blockState.hideBlockedCompletely,
                   onChanged: (val) {
@@ -112,15 +99,11 @@ class BlockSettingsPage extends ConsumerWidget {
                 SwitchListTile(
                   secondary: Icon(
                     Icons.videocam_off_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     '不看视频贴',
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '自动过滤推荐流与社区中的所有视频内容',
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: blockState.blockVideoThreads,
                   onChanged: (val) {
@@ -136,15 +119,11 @@ class BlockSettingsPage extends ConsumerWidget {
                 SwitchListTile(
                   secondary: Icon(
                     Icons.favorite_outline_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     '只推荐已关注的吧',
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '主页推荐信息流仅展示已关注版块的内容',
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: blockState.recommendFollowedOnly,
                   onChanged: (val) {

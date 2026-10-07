@@ -1,5 +1,6 @@
 import "package:easy_refresh/easy_refresh.dart";
 import "package:flutter/material.dart";
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "../../../../core/auth/auth_provider.dart";
 import "../../../../core/network/tieba_dio_client.dart";
@@ -170,8 +171,8 @@ class _FollowUsersViewState extends ConsumerState<FollowUsersView> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("关注的吧友", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+      appBar: const LurkFrostedAppBar(
+        title: Text("关注的吧友", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
       ),
       body: EasyRefresh(
         controller: _refreshController,
@@ -204,13 +205,14 @@ class _FollowUsersViewState extends ConsumerState<FollowUsersView> {
                       final user = _users[index];
                       return Card(
                         elevation: 0,
-                        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                        color: colorScheme.surfaceContainerLow,
+                        margin: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.1), width: 0.8),
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide.none,
                         ),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(20),
                           onTap: () {
                             HapticFeedbackUtil.light();
                             Navigator.push(
@@ -262,7 +264,7 @@ class _FollowUsersViewState extends ConsumerState<FollowUsersView> {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                     decoration: BoxDecoration(
-                                      color: colorScheme.surfaceContainerHighest,
+                                      color: colorScheme.surfaceContainerLow,
                                       borderRadius: BorderRadius.circular(12),
                                       border: Border.all(color: colorScheme.outlineVariant.withValues(alpha: 0.4)),
                                     ),

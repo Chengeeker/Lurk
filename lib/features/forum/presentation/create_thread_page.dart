@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -130,7 +131,7 @@ class _CreateThreadPageState extends ConsumerState<CreateThreadPage> {
     return PopScope(
       canPop: !_isSubmitting,
       child: Scaffold(
-        appBar: AppBar(
+        appBar: LurkFrostedAppBar(
           leading: IconButton(
             tooltip: '返回',
             onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),

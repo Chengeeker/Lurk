@@ -1,5 +1,6 @@
 import "package:easy_refresh/easy_refresh.dart";
 import "package:flutter/material.dart";
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "../../../core/auth/auth_provider.dart";
@@ -332,7 +333,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
                 accountName == authState.activeAccount?.name));
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         title: Text(
           displayName,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -357,15 +358,10 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
               child: Card(
                 elevation: 0,
                 margin: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-                color: colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.4,
-                ),
+                color: colorScheme.surfaceContainerLow,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: theme.dividerColor.withValues(alpha: 0.1),
-                    width: 0.8,
-                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  side: BorderSide.none,
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -477,9 +473,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
                           horizontal: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.5,
-                          ),
+                          color: colorScheme.surfaceContainer,
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Row(

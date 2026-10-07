@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import "package:flutter/services.dart";
 import "package:url_launcher/url_launcher.dart";
 import "package:webview_flutter/webview_flutter.dart";
@@ -101,7 +102,7 @@ class _AppWebViewPageState extends State<AppWebViewPage> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
+        appBar: LurkFrostedAppBar(
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,

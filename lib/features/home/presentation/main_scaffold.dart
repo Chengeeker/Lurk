@@ -89,7 +89,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     final standardNavBar = NavigationBar(
       selectedIndex: _currentIndex,
       elevation: 0,
-      height: 65,
+      height: 80,
       backgroundColor: theme.scaffoldBackgroundColor,
       surfaceTintColor: Colors.transparent,
       indicatorColor: isDark ? colorScheme.secondaryContainer : colorScheme.primaryContainer,

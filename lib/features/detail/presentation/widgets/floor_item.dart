@@ -534,8 +534,7 @@ class FloorItem extends ConsumerWidget {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: colorScheme.surfaceContainerHighest
-                                .withValues(alpha: 0.5),
+                            color: colorScheme.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Column(

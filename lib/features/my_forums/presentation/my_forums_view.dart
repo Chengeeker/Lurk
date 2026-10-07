@@ -1,5 +1,6 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -64,7 +65,7 @@ class MyForumsView extends ConsumerWidget {
     final isSingleColumn = ref.watch(myForumsSingleColumnProvider);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -265,8 +266,7 @@ class MyForumsView extends ConsumerWidget {
                               vertical: 1.5,
                             ),
                             decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.6),
+                              color: colorScheme.surfaceContainerLow,
                               borderRadius: BorderRadius.circular(
                                 4,
                               ),
@@ -372,8 +372,7 @@ class MyForumsView extends ConsumerWidget {
                               vertical: 1,
                             ),
                             decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.6),
+                              color: colorScheme.surfaceContainerLow,
                               borderRadius: BorderRadius.circular(
                                 4,
                               ),

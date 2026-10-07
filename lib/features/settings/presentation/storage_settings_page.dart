@@ -7,6 +7,7 @@ import "../../../core/auth/auth_provider.dart";
 import "../../../core/storage/storage_service.dart";
 import "../../../core/utils/app_toast.dart";
 import "../../../core/utils/haptic_feedback_util.dart";
+import "../../../core/widgets/app_section_card.dart";
 
 /// 存储设置页面 (管理图片与视频存储路径、缓存自动与手动清理)
 class StorageSettingsPage extends ConsumerStatefulWidget {
@@ -224,22 +225,13 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           // 1. 媒体保存路径卡片
-          Card(
-            elevation: 0,
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.1),
-                width: 0.8,
-              ),
-            ),
+          AppSectionCard(
             child: Column(
               children: [
                 ListTile(
                   leading: Icon(
                     Icons.image_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "图片存储路径",
@@ -261,7 +253,7 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
                 ListTile(
                   leading: Icon(
                     Icons.video_library_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "视频存储路径",
@@ -285,30 +277,17 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
           const SizedBox(height: 14),
 
           // 2. 缓存管理卡片
-          Card(
-            elevation: 0,
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.1),
-                width: 0.8,
-              ),
-            ),
+          AppSectionCard(
             child: Column(
               children: [
                 SwitchListTile(
                   secondary: Icon(
                     Icons.auto_delete_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "退出时自动清理缓存",
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    "应用关闭时自动清理网络图片与临时缓存文件",
-                    style: TextStyle(fontSize: 12),
                   ),
                   value: autoClearCache,
                   onChanged: (val) async {
@@ -321,15 +300,11 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
                 ListTile(
                   leading: Icon(
                     Icons.cleaning_services_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "立即清理缓存",
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    "清除本地网络图片与磁盘缓存，释放存储空间",
-                    style: TextStyle(fontSize: 12),
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () async {

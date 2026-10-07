@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/utils/app_toast.dart';
@@ -46,8 +47,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final authState = ref.watch(authStateProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('登录百度账号', style: TextStyle(fontWeight: FontWeight.bold)),
+      appBar: const LurkFrostedAppBar(
+        title: Text('登录百度账号', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),

@@ -1,5 +1,6 @@
 import "package:easy_refresh/easy_refresh.dart";
 import "package:flutter/material.dart";
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "../../../core/utils/app_toast.dart";
@@ -125,7 +126,6 @@ class NotificationView extends ConsumerWidget {
 
   Widget _buildNotificationTab(
     BuildContext context, {
-    required ThemeData theme,
     required ColorScheme colorScheme,
     required List<TiebaNotificationModel> items,
     required String emptyMessage,
@@ -158,7 +158,6 @@ class NotificationView extends ConsumerWidget {
       itemBuilder: (context, index) {
         return _buildNotificationItem(
           context,
-          theme,
           colorScheme,
           items[index],
         );
@@ -168,7 +167,6 @@ class NotificationView extends ConsumerWidget {
 
   Widget _buildNotificationItem(
     BuildContext context,
-    ThemeData theme,
     ColorScheme colorScheme,
     TiebaNotificationModel item,
   ) {
@@ -179,11 +177,8 @@ class NotificationView extends ConsumerWidget {
       elevation: 0,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: theme.dividerColor.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide.none,
       ),
       child: InkWell(
         onTap: () => _openThread(context, item),
@@ -232,8 +227,7 @@ class NotificationView extends ConsumerWidget {
                                   vertical: 1.5,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.5),
+                                  color: colorScheme.surfaceContainerLow,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
@@ -290,9 +284,7 @@ class NotificationView extends ConsumerWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest.withValues(
-                      alpha: 0.4,
-                    ),
+                    color: colorScheme.surfaceContainer,
                     borderRadius: BorderRadius.circular(8),
                     border: Border(
                       left: BorderSide(
@@ -328,12 +320,12 @@ class NotificationView extends ConsumerWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text(
+        appBar: const LurkFrostedAppBar(
+          title: Text(
             "消息通知",
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
           ),
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
               Tab(text: "回复我的"),
               Tab(text: "@提到我的"),
@@ -348,7 +340,6 @@ class NotificationView extends ConsumerWidget {
             children: [
               _buildNotificationTab(
                 context,
-                theme: theme,
                 colorScheme: colorScheme,
                 items: notifState.replies,
                 emptyMessage: "暂无回复消息",
@@ -359,7 +350,6 @@ class NotificationView extends ConsumerWidget {
               ),
               _buildNotificationTab(
                 context,
-                theme: theme,
                 colorScheme: colorScheme,
                 items: notifState.atList,
                 emptyMessage: "暂无@消息",

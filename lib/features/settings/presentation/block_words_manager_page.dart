@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/app_section_card.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
 import 'providers/block_settings_provider.dart';
@@ -53,7 +55,7 @@ class _BlockWordsManagerPageState extends ConsumerState<BlockWordsManagerPage>
     final blockState = ref.watch(blockSettingsProvider);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -229,16 +231,8 @@ class _BlockWordsManagerPageState extends ConsumerState<BlockWordsManagerPage>
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final word = words[index];
-                    return Card(
-                      elevation: 0,
-                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: BorderSide(
-                          color: theme.dividerColor.withValues(alpha: 0.06),
-                          width: 0.8,
-                        ),
-                      ),
+                    return AppSectionCard(
+                      borderRadius: BorderRadius.circular(20),
                       child: ListTile(
                         dense: true,
                         leading: Container(

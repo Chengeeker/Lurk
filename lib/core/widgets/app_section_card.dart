@@ -6,35 +6,26 @@ import 'package:flutter/material.dart';
 /// screens from drifting away from the application's Material 3 surface style.
 class AppSectionCard extends StatelessWidget {
   final Widget child;
-  final Color? color;
   final BorderRadiusGeometry borderRadius;
-  final EdgeInsetsGeometry? margin;
 
   const AppSectionCard({
     super.key,
     required this.child,
-    this.color,
-    this.borderRadius = const BorderRadius.all(Radius.circular(18)),
-    this.margin,
+    this.borderRadius = const BorderRadius.all(Radius.circular(24)),
   });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Card(
-      margin: margin,
+      margin: EdgeInsets.zero,
       elevation: 0,
       clipBehavior: Clip.antiAlias,
-      color:
-          color ?? colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      color: colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: borderRadius,
-        side: BorderSide(
-          color: theme.dividerColor.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
+        side: BorderSide.none,
       ),
       child: child,
     );

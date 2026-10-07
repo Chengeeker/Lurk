@@ -1,6 +1,7 @@
 import "dart:convert";
 import "package:extended_image/extended_image.dart";
 import "package:flutter/material.dart";
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "../../../../core/storage/storage_service.dart";
 import "../../../../core/utils/app_dialog.dart";
@@ -249,7 +250,7 @@ class _HistoryViewState extends ConsumerState<HistoryView>
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         title: const Text("浏览记录", style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
@@ -337,14 +338,14 @@ class _HistoryViewState extends ConsumerState<HistoryView>
       itemBuilder: (context, index) {
         final item = _forumHistory[index];
         return Card(
-          elevation: 0.5,
+          elevation: 0,
           margin: const EdgeInsets.only(bottom: 8),
           color: colorScheme.surfaceContainerLow,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(20),
             onTap: () {
               Navigator.push(
                 context,

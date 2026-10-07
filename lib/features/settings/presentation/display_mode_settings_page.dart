@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/display_mode_service.dart';
 import '../../../core/storage/storage_service.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
+import '../../../core/widgets/app_section_card.dart';
 
 class DisplayModeSettingsPage extends ConsumerStatefulWidget {
   const DisplayModeSettingsPage({super.key});
@@ -56,7 +58,7 @@ class _DisplayModeSettingsPageState extends ConsumerState<DisplayModeSettingsPag
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -66,7 +68,7 @@ class _DisplayModeSettingsPageState extends ConsumerState<DisplayModeSettingsPag
         ),
         title: const Text(
           '屏幕帧率设置',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
         centerTitle: false,
       ),
@@ -88,17 +90,7 @@ class _DisplayModeSettingsPageState extends ConsumerState<DisplayModeSettingsPag
                       ),
                     ),
                   ),
-                  Card(
-                    elevation: 0,
-                    color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                      side: BorderSide(
-                        color: theme.dividerColor.withValues(alpha: 0.08),
-                        width: 0.8,
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
+                  AppSectionCard(
                     child: Column(
                       children: [
                         _buildModeTile(

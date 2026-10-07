@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "../../../core/utils/haptic_feedback_util.dart";
 import "../../../core/utils/spring_page_route.dart";
@@ -206,7 +207,7 @@ class _SearchViewState extends ConsumerState<SearchView>
     final searchState = ref.watch(searchControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         title: TextField(
           controller: _controller,
           autofocus: true,

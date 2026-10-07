@@ -31,18 +31,6 @@ class SettingsView extends ConsumerWidget {
     }
   }
 
-  Widget _buildVersionSubtitle(BuildContext context) {
-    return FutureBuilder<String>(
-      future: _appVersion(),
-      builder: (context, snapshot) {
-        return Text(
-          snapshot.hasData ? '版本 ${snapshot.data}' : '版本读取中…',
-          style: const TextStyle(fontSize: 12.5),
-        );
-      },
-    );
-  }
-
   Widget _buildVersionBadge(ColorScheme colorScheme) {
     return FutureBuilder<String>(
       future: _appVersion(),
@@ -491,28 +479,34 @@ class SettingsView extends ConsumerWidget {
     final authState = ref.watch(authStateProvider);
     final habitState = ref.watch(habitSettingsProvider);
     final habitNotifier = ref.read(habitSettingsProvider.notifier);
+    final sectionTitleStyle = theme.textTheme.titleSmall?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontSize: 15,
+      fontWeight: FontWeight.w600,
+    );
+    final settingTitleStyle = theme.textTheme.titleMedium?.copyWith(
+      color: colorScheme.onSurface,
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
+    );
+    final settingDescriptionStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: colorScheme.onSurfaceVariant,
+      fontSize: 13,
+    );
+    final dividerColor = colorScheme.outlineVariant.withValues(alpha: 0.5);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          '设置',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
-        ),
-      ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          MediaQuery.paddingOf(context).top + 12,
+          16,
+          12,
+        ),
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              '偏好与功能',
-              style: TextStyle(
-                color: colorScheme.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
+            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            child: Text('偏好与功能', style: sectionTitleStyle),
           ),
           AppSectionCard(
             child: Column(
@@ -520,16 +514,9 @@ class SettingsView extends ConsumerWidget {
                 ListTile(
                   leading: Icon(
                     Icons.palette_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                  title: const Text(
-                    '个性化',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '外观风格、主题色彩、字体、屏幕帧率等',
-                    style: TextStyle(fontSize: 12.5),
-                  ),
+                  title: Text('个性化', style: settingTitleStyle),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
                     HapticFeedbackUtil.light();
@@ -542,22 +529,15 @@ class SettingsView extends ConsumerWidget {
                 ),
                 Divider(
                   height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
+                  thickness: 1,
+                  color: dividerColor,
                 ),
                 ListTile(
                   leading: Icon(
                     Icons.block_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                  title: const Text(
-                    '屏蔽设置',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '屏蔽词管理、视频贴过滤、推荐限制',
-                    style: TextStyle(fontSize: 12.5),
-                  ),
+                  title: Text('屏蔽设置', style: settingTitleStyle),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
                     HapticFeedbackUtil.light();
@@ -567,19 +547,15 @@ class SettingsView extends ConsumerWidget {
                 ),
                 Divider(
                   height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
+                  thickness: 1,
+                  color: dividerColor,
                 ),
                 ListTile(
-                  leading: Icon(Icons.tune_rounded, color: colorScheme.primary),
-                  title: const Text(
-                    '使用习惯',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                  leading: Icon(
+                    Icons.tune_rounded,
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                  subtitle: const Text(
-                    '自动加载、手势操作、看图画质偏好',
-                    style: TextStyle(fontSize: 12.5),
-                  ),
+                  title: Text('使用习惯', style: settingTitleStyle),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
                     HapticFeedbackUtil.light();
@@ -589,22 +565,15 @@ class SettingsView extends ConsumerWidget {
                 ),
                 Divider(
                   height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
+                  thickness: 1,
+                  color: dividerColor,
                 ),
                 ListTile(
                   leading: Icon(
                     Icons.folder_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                  title: const Text(
-                    '存储设置',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '图片与视频存储路径、缓存自动与手动清理',
-                    style: TextStyle(fontSize: 12.5),
-                  ),
+                  title: Text('存储设置', style: settingTitleStyle),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
                     HapticFeedbackUtil.light();
@@ -615,22 +584,15 @@ class SettingsView extends ConsumerWidget {
                 ),
                 Divider(
                   height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
+                  thickness: 1,
+                  color: dividerColor,
                 ),
                 SwitchListTile(
                   secondary: Icon(
                     Icons.language_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                  title: const Text(
-                    '使用内置浏览器',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '所有链接都将使用内置浏览器打开',
-                    style: TextStyle(fontSize: 12.5),
-                  ),
+                  title: Text('使用内置浏览器', style: settingTitleStyle),
                   value: habitState.useInternalBrowser,
                   onChanged: (val) {
                     habitNotifier.setUseInternalBrowser(val);
@@ -639,19 +601,11 @@ class SettingsView extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 32),
 
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              '账号设置',
-              style: TextStyle(
-                color: colorScheme.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
+            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            child: Text('账号设置', style: sectionTitleStyle),
           ),
           AppSectionCard(
             child: Column(
@@ -660,15 +614,15 @@ class SettingsView extends ConsumerWidget {
                   ListTile(
                     leading: Icon(
                       Icons.account_circle_rounded,
-                      color: colorScheme.primary,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                     title: Text(
                       authState.activeAccount!.displayName,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                      style: settingTitleStyle,
                     ),
                     subtitle: Text(
                       'UID: ${authState.activeAccount!.uid}',
-                      style: const TextStyle(fontSize: 12.5),
+                      style: settingDescriptionStyle,
                     ),
                     trailing: TextButton(
                       onPressed: () async {
@@ -684,30 +638,23 @@ class SettingsView extends ConsumerWidget {
                           ref.read(authStateProvider.notifier).logout();
                         }
                       },
-                      child: const Text(
+                      child: Text(
                         '退出登录',
-                        style: TextStyle(color: Colors.redAccent),
+                        style: TextStyle(color: colorScheme.error),
                       ),
                     ),
                   ),
                   Divider(
                     height: 1,
-                    indent: 56,
-                    color: theme.dividerColor.withValues(alpha: 0.1),
+                    thickness: 1,
+                    color: dividerColor,
                   ),
                   ListTile(
                     leading: Icon(
                       Icons.key_rounded,
-                      color: colorScheme.primary,
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                    title: const Text(
-                      '导出登录凭据 / Cookie',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: const Text(
-                      '查看并导出当前账号 BDUSS 与完整 Cookie',
-                      style: TextStyle(fontSize: 12.5),
-                    ),
+                    title: Text('导出登录凭据 / Cookie', style: settingTitleStyle),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => _showExportCredentialsDialog(
                       context,
@@ -716,22 +663,15 @@ class SettingsView extends ConsumerWidget {
                   ),
                   Divider(
                     height: 1,
-                    indent: 56,
-                    color: theme.dividerColor.withValues(alpha: 0.1),
+                    thickness: 1,
+                    color: dividerColor,
                   ),
                   ListTile(
                     leading: Icon(
                       Icons.verified_user_outlined,
-                      color: colorScheme.primary,
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                    title: const Text(
-                      '检测账号凭据有效性',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: const Text(
-                      '验证当前 Cookie 与访问令牌是否过期有效',
-                      style: TextStyle(fontSize: 12.5),
-                    ),
+                    title: Text('检测账号凭据有效性', style: settingTitleStyle),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () => _checkCredentialValidity(
                       context,
@@ -743,16 +683,9 @@ class SettingsView extends ConsumerWidget {
                   ListTile(
                     leading: Icon(
                       Icons.login_rounded,
-                      color: colorScheme.primary,
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                    title: const Text(
-                      '登录百度账号',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: const Text(
-                      '网页快捷授权 / 导入 Cookie 凭据',
-                      style: TextStyle(fontSize: 12.5),
-                    ),
+                    title: Text('登录百度账号', style: settingTitleStyle),
                     trailing: const Icon(Icons.chevron_right_rounded),
                     onTap: () {
                       HapticFeedbackUtil.light();
@@ -765,19 +698,11 @@ class SettingsView extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 32),
 
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              '关于与支持',
-              style: TextStyle(
-                color: colorScheme.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
-              ),
-            ),
+            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            child: Text('关于与支持', style: sectionTitleStyle),
           ),
           AppSectionCard(
             child: Column(
@@ -785,13 +710,9 @@ class SettingsView extends ConsumerWidget {
                 ListTile(
                   leading: Icon(
                     Icons.info_outline_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                  title: const Text(
-                    '关于 Lurk',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: _buildVersionSubtitle(context),
+                  title: Text('关于 Lurk', style: settingTitleStyle),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _showAboutDialog(context),
                 ),

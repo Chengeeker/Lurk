@@ -106,13 +106,10 @@ class AppTheme {
         elevation: 0,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: scheme.outlineVariant.withValues(alpha: 0.35),
-            width: 0.8,
-          ),
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide.none,
         ),
-        color: scheme.surfaceContainerLowest,
+        color: scheme.surfaceContainerLow,
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       ),
       listTileTheme: ListTileThemeData(
@@ -191,15 +188,10 @@ class AppTheme {
         elevation: 0,
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: isPureBlack
-                ? Colors.white.withValues(alpha: 0.12)
-                : scheme.outlineVariant.withValues(alpha: 0.2),
-            width: 0.8,
-          ),
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide.none,
         ),
-        color: cardColor,
+        color: isPureBlack ? cardColor : scheme.surfaceContainerLow,
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       ),
       listTileTheme: ListTileThemeData(

@@ -1,5 +1,6 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/auth/auth_provider.dart';
@@ -212,7 +213,7 @@ class _BookmarksViewState extends ConsumerState<BookmarksView> {
     final authState = ref.watch(authStateProvider);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

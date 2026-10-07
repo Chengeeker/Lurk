@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -128,7 +129,7 @@ class _WebLoginPageState extends ConsumerState<WebLoginPage> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         title: const Text('百度账号网页授权', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         actions: [
           IconButton(

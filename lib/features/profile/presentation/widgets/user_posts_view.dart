@@ -1,5 +1,6 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/auth/auth_provider.dart';
 import '../../../../core/widgets/app_avatar.dart';
@@ -77,7 +78,7 @@ class _UserPostsViewState extends ConsumerState<UserPostsView> {
     final isPageLoading = isTargetUser ? _isLoadingOther : profileState.isLoading;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         title: Text(isTargetUser ? "$targetDisplayName的主页" : '个人主页', style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: EasyRefresh(
@@ -98,9 +99,8 @@ class _UserPostsViewState extends ConsumerState<UserPostsView> {
                 margin: const EdgeInsets.all(16),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1), width: 0.8),
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 child: Row(
                   children: [

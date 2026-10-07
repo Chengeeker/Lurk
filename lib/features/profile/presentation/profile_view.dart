@@ -1,5 +1,6 @@
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -70,8 +71,8 @@ class ProfileView extends ConsumerWidget {
         : (activeAccount?.portrait ?? '');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
+      appBar: const LurkFrostedAppBar(
+        title: Text(
           '我的',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
@@ -87,10 +88,8 @@ class ProfileView extends ConsumerWidget {
           children: [
             // User Header Card (MD3E Container)
             AppSectionCard(
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(20),
               child: InkWell(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 onTap: () {
                   HapticFeedbackUtil.light();
                   if (isLogin) {
@@ -109,8 +108,8 @@ class ProfileView extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      AppAvatar(portrait: portrait, size: 60, radius: 30),
-                      const SizedBox(width: 16),
+                      AppAvatar(portrait: portrait, size: 56, radius: 28),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,7 +122,7 @@ class ProfileView extends ConsumerWidget {
                                   : '点击登录百度账号',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 18,
+                                fontSize: 17,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -135,7 +134,7 @@ class ProfileView extends ConsumerWidget {
                                   : '登录后同步关注、粉丝、收藏等数据',
                               style: TextStyle(
                                 color: colorScheme.outline,
-                                fontSize: 12,
+                                fontSize: 13,
                               ),
                             ),
                           ],
@@ -156,8 +155,6 @@ class ProfileView extends ConsumerWidget {
 
             // (a) User Stats: 关注数量, 粉丝数量, 回帖数量, 获赞数量 (MD3E Card with Interactive Taps)
             AppSectionCard(
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(20),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Row(
@@ -247,24 +244,20 @@ class ProfileView extends ConsumerWidget {
               child: Text(
                 '快捷功能',
                 style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
 
             AppSectionCard(
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(20),
               child: Column(
                 children: [
                   _buildMenuItem(
-                    context,
                     icon: Icons.bookmark_outline_rounded,
-                    iconColor: colorScheme.primary,
+                    iconColor: colorScheme.onSurfaceVariant,
                     title: '我的收藏',
-                    subtitle: '本地保存与收藏贴子',
                     onTap: () {
                       HapticFeedbackUtil.light();
                       Navigator.push(
@@ -279,11 +272,9 @@ class ProfileView extends ConsumerWidget {
                     color: theme.dividerColor.withValues(alpha: 0.1),
                   ),
                   _buildMenuItem(
-                    context,
                     icon: Icons.history_rounded,
-                    iconColor: colorScheme.primary,
+                    iconColor: colorScheme.onSurfaceVariant,
                     title: '浏览记录',
-                    subtitle: '查看最近阅读的贴子',
                     onTap: () {
                       HapticFeedbackUtil.light();
                       Navigator.push(
@@ -298,11 +289,9 @@ class ProfileView extends ConsumerWidget {
                     color: theme.dividerColor.withValues(alpha: 0.1),
                   ),
                   _buildMenuItem(
-                    context,
                     icon: Icons.settings_outlined,
-                    iconColor: colorScheme.primary,
+                    iconColor: colorScheme.onSurfaceVariant,
                     title: '设置',
-                    subtitle: '主题模式、色彩方案、悬浮胶囊底栏与触感反馈',
                     onTap: () {
                       HapticFeedbackUtil.light();
                       Navigator.push(
@@ -357,26 +346,17 @@ class ProfileView extends ConsumerWidget {
     );
   }
 
-  Widget _buildMenuItem(
-    BuildContext context, {
+  Widget _buildMenuItem({
     required IconData icon,
     required Color iconColor,
     required String title,
-    required String subtitle,
     required VoidCallback onTap,
   }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
     return ListTile(
       leading: Icon(icon, color: iconColor),
       title: Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 12.5, color: colorScheme.outline),
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
       ),
       trailing: const Icon(Icons.chevron_right_rounded),
       onTap: onTap,

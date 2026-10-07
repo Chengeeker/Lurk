@@ -30,7 +30,7 @@ class PersonalizationSettingsPage extends ConsumerWidget {
         ),
         title: const Text(
           '个性化',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
         centerTitle: false,
       ),
@@ -42,21 +42,20 @@ class PersonalizationSettingsPage extends ConsumerWidget {
             child: Text(
               '外观与视觉',
               style: TextStyle(
-                color: colorScheme.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
               ),
             ),
           ),
           AppSectionCard(
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
             child: Column(
               children: [
                 ListTile(
                   leading: Icon(
                     Icons.dark_mode_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     '夜间模式',
@@ -64,7 +63,10 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                   ),
                   subtitle: Text(
                     _getThemeModeLabel(themeState.themeMode),
-                    style: const TextStyle(fontSize: 12.5),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
@@ -106,15 +108,11 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                   SwitchListTile(
                     secondary: Icon(
                       Icons.brightness_2_outlined,
-                      color: colorScheme.primary,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                     title: const Text(
                       '纯黑深色模式',
                       style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: const Text(
-                      '针对 OLED 屏幕优化的纯黑背景',
-                      style: TextStyle(fontSize: 12.5),
                     ),
                     value: themeState.isPureBlackDark,
                     onChanged: (val) {
@@ -131,15 +129,11 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                 SwitchListTile(
                   secondary: Icon(
                     Icons.color_lens_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     '动态色彩 (Material You)',
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '从壁纸中提取主色调（需 Android 12+）',
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: themeState.useDynamicColor,
                   onChanged: (val) {
@@ -248,7 +242,7 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                 ListTile(
                   leading: Icon(
                     Icons.format_size_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     '字体粗细调节',
@@ -256,7 +250,10 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                   ),
                   subtitle: Text(
                     _getFontWeightLabel(themeState.fontWeightIndex),
-                    style: const TextStyle(fontSize: 12.5),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
@@ -309,15 +306,11 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                 ListTile(
                   leading: Icon(
                     Icons.speed_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     '屏幕帧率设置',
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '选择屏幕刷新率档位',
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
@@ -335,15 +328,11 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                 SwitchListTile(
                   secondary: Icon(
                     Icons.view_carousel_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     '悬浮胶囊底栏',
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '开启后底部使用浮动胶囊导航条',
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: themeState.useFloatingNavBar,
                   onChanged: (val) {
@@ -359,15 +348,11 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                 SwitchListTile(
                   secondary: Icon(
                     Icons.vibration_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     '震动反馈',
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    '触控与操作轻微震动反馈',
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: themeState.enableHaptics,
                   onChanged: (val) {

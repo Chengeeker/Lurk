@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -358,7 +359,7 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
     _scheduleTargetPostScroll(detailState);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         centerTitle: true,
         title: forumName.isNotEmpty
             ? _buildForumPill(
@@ -775,13 +776,10 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
       elevation: 0,
       clipBehavior: Clip.antiAlias,
-      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      color: colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: theme.dividerColor.withValues(alpha: 0.1),
-          width: 0.8,
-        ),
+        side: BorderSide.none,
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),

@@ -192,11 +192,8 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
       elevation: 0,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: theme.dividerColor.withValues(alpha: 0.08),
-          width: 0.8,
-        ),
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide.none,
       ),
       child: InkWell(
         onTap: () {
@@ -359,9 +356,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest.withValues(
-                          alpha: 0.45,
-                        ),
+                        color: colorScheme.surfaceContainerLow,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(

@@ -1,6 +1,8 @@
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
+import "../../../core/widgets/lurk_frosted_app_bar.dart";
+import "../../../core/widgets/app_section_card.dart";
 import "providers/habit_settings_provider.dart";
 
 class HabitSettingsPage extends ConsumerWidget {
@@ -213,7 +215,7 @@ class HabitSettingsPage extends ConsumerWidget {
         : "回复时间排序";
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -222,7 +224,7 @@ class HabitSettingsPage extends ConsumerWidget {
         ),
         title: const Text(
           "使用习惯",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
         centerTitle: false,
       ),
@@ -234,30 +236,20 @@ class HabitSettingsPage extends ConsumerWidget {
             child: Text(
               "启动与偏好",
               style: TextStyle(
-                color: colorScheme.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
               ),
             ),
           ),
-          Card(
-            elevation: 0,
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.08),
-                width: 0.8,
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
+          AppSectionCard(
             child: Column(
               children: [
                 ListTile(
                   leading: Icon(
                     Icons.home_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "启动首选页",
@@ -282,7 +274,7 @@ class HabitSettingsPage extends ConsumerWidget {
                 ListTile(
                   leading: Icon(
                     Icons.photo_filter_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "图片加载设置",
@@ -305,7 +297,7 @@ class HabitSettingsPage extends ConsumerWidget {
                   color: theme.dividerColor.withValues(alpha: 0.1),
                 ),
                 ListTile(
-                  leading: Icon(Icons.sort_rounded, color: colorScheme.primary),
+                  leading: Icon(Icons.sort_rounded, color: colorScheme.onSurfaceVariant),
                   title: const Text(
                     "吧默认排序方式",
                     style: TextStyle(fontWeight: FontWeight.w600),
@@ -329,15 +321,11 @@ class HabitSettingsPage extends ConsumerWidget {
                 SwitchListTile(
                   secondary: Icon(
                     Icons.history_toggle_off_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "不保存浏览记录",
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    "开启后，看帖与进吧均不会写入本地浏览历史",
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: habitState.doNotSaveHistory,
                   onChanged: (val) {
@@ -353,38 +341,24 @@ class HabitSettingsPage extends ConsumerWidget {
             child: Text(
               "浏览与交互偏好",
               style: TextStyle(
-                color: colorScheme.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.5,
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
               ),
             ),
           ),
-          Card(
-            elevation: 0,
-            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.08),
-                width: 0.8,
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
+          AppSectionCard(
             child: Column(
               children: [
                 SwitchListTile(
                   secondary: Icon(
                     Icons.autorenew_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "自动加载更多",
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    "滑动至列表底部时自动预载下一页内容",
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: habitState.autoLoadMore,
                   onChanged: (val) {
@@ -399,15 +373,11 @@ class HabitSettingsPage extends ConsumerWidget {
                 SwitchListTile(
                   secondary: Icon(
                     Icons.vertical_align_top_rounded,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "双击顶栏返回顶部",
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    "快速双击顶部标题栏平滑滚回页面最上方",
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: habitState.doubleTapTop,
                   onChanged: (val) {
@@ -422,15 +392,11 @@ class HabitSettingsPage extends ConsumerWidget {
                 SwitchListTile(
                   secondary: Icon(
                     Icons.image_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "看图优先加载高清原图",
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    "进入大图查看时自动加载高清未压缩原图",
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: habitState.showOriginalImg,
                   onChanged: (val) {
@@ -445,15 +411,11 @@ class HabitSettingsPage extends ConsumerWidget {
                 SwitchListTile(
                   secondary: Icon(
                     Icons.touch_app_outlined,
-                    color: colorScheme.primary,
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
                     "双击底栏快速刷新",
                     style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: const Text(
-                    "在推荐页双击底部导航栏图标自动触发刷新",
-                    style: TextStyle(fontSize: 12.5),
                   ),
                   value: habitState.doubleTapFeedRefresh,
                   onChanged: (val) {

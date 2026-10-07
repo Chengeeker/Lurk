@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:easy_refresh/easy_refresh.dart';
 import 'package:flutter/material.dart';
+import 'package:lurk/core/widgets/lurk_frosted_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -237,8 +238,7 @@ class _ForumViewState extends ConsumerState<ForumView> {
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.5),
+                                  color: colorScheme.surfaceContainerLow,
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: colorScheme.outline.withValues(
@@ -413,8 +413,7 @@ class _ForumViewState extends ConsumerState<ForumView> {
                               margin: const EdgeInsets.only(bottom: 16),
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHighest
-                                    .withValues(alpha: 0.4),
+                                color: colorScheme.surfaceContainerLow,
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
                                   color: colorScheme.outline.withValues(
@@ -550,7 +549,7 @@ class _ForumViewState extends ConsumerState<ForumView> {
     final rule = forum?.rule;
     final pinnedThreads = forumState.pinnedThreads;
     return Scaffold(
-      appBar: AppBar(
+      appBar: LurkFrostedAppBar(
         title: Text(
           "${widget.forumName}吧",
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
@@ -687,15 +686,10 @@ class _ForumViewState extends ConsumerState<ForumView> {
                         vertical: 5,
                       ),
                       elevation: 0,
-                      color: colorScheme.surfaceContainerHighest.withValues(
-                        alpha: 0.35,
-                      ),
+                      color: colorScheme.surfaceContainerLow,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                        side: BorderSide(
-                          color: theme.dividerColor.withValues(alpha: 0.1),
-                          width: 0.8,
-                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide.none,
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
@@ -890,9 +884,7 @@ class _ForumViewState extends ConsumerState<ForumView> {
                       const SizedBox(height: 6),
                       Container(
                         decoration: BoxDecoration(
-                          color: colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.25,
-                          ),
+                          color: colorScheme.surfaceContainerLow,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: colorScheme.outlineVariant.withValues(
@@ -1092,7 +1084,7 @@ class _ForumViewState extends ConsumerState<ForumView> {
         decoration: BoxDecoration(
           color: isSelected
               ? colorScheme.primary.withValues(alpha: 0.12)
-              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+              : colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
@@ -1198,7 +1190,7 @@ class _ForumViewState extends ConsumerState<ForumView> {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: colorScheme.outline.withValues(alpha: 0.2),
