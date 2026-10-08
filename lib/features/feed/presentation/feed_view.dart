@@ -40,41 +40,42 @@ class _FeedViewState extends ConsumerState<FeedView> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final tabBar = TabBar(
+      controller: _tabController,
+      indicatorSize: TabBarIndicatorSize.label,
+      labelColor: colorScheme.primary,
+      unselectedLabelColor: colorScheme.onSurfaceVariant,
+      labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+      unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
+      tabs: const [Tab(text: '关注'), Tab(text: '推荐'), Tab(text: '热榜')],
+    );
+    final appBar = LurkFrostedAppBar(
+      title: const Text(
+        '动态',
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.search_rounded),
+          onPressed: () {
+            Navigator.push(context, SpringPageRoute(page: const SearchView()));
+          },
+        ),
+      ],
+      bottom: tabBar,
+    );
+    final topContentInset = MediaQuery.viewPaddingOf(context).top +
+        AppBar.preferredHeightFor(context, appBar.preferredSize);
 
     return Scaffold(
-      appBar: LurkFrostedAppBar(
-        title: const Text(
-          '动态',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded),
-            onPressed: () {
-              Navigator.push(context, SpringPageRoute(page: const SearchView()));
-            },
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorSize: TabBarIndicatorSize.label,
-          labelColor: colorScheme.primary,
-          unselectedLabelColor: colorScheme.onSurfaceVariant,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
-          tabs: const [
-            Tab(text: '关注'),
-            Tab(text: '推荐'),
-            Tab(text: '热榜'),
-          ],
-        ),
-      ),
+      extendBodyBehindAppBar: true,
+      appBar: appBar,
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          _FollowFeedTab(),
-          _RecommendFeedTab(),
-          _HotTopicTab(),
+        children: [
+          _FollowFeedTab(topContentInset: topContentInset),
+          _RecommendFeedTab(topContentInset: topContentInset),
+          _HotTopicTab(topContentInset: topContentInset),
         ],
       ),
     );
@@ -83,7 +84,9 @@ class _FeedViewState extends ConsumerState<FeedView> with SingleTickerProviderSt
 
 /// 关注分栏
 class _FollowFeedTab extends ConsumerStatefulWidget {
-  const _FollowFeedTab();
+  const _FollowFeedTab({required this.topContentInset});
+
+  final double topContentInset;
 
   @override
   ConsumerState<_FollowFeedTab> createState() => _FollowFeedTabState();
@@ -157,8 +160,14 @@ class _FollowFeedTabState extends ConsumerState<_FollowFeedTab> with AutomaticKe
           followState.hasMore ? IndicatorResult.success : IndicatorResult.noMore,
         );
       },
-      child: CustomScrollView(
-        slivers: [
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: SizedBox(height: widget.topContentInset),
+            ),
           if (followState.errorMessage != null && followState.threads.isEmpty)
             SliverFillRemaining(
               child: Center(
@@ -190,7 +199,8 @@ class _FollowFeedTabState extends ConsumerState<_FollowFeedTab> with AutomaticKe
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -198,7 +208,9 @@ class _FollowFeedTabState extends ConsumerState<_FollowFeedTab> with AutomaticKe
 
 /// 推荐分栏
 class _RecommendFeedTab extends ConsumerStatefulWidget {
-  const _RecommendFeedTab();
+  const _RecommendFeedTab({required this.topContentInset});
+
+  final double topContentInset;
 
   @override
   ConsumerState<_RecommendFeedTab> createState() => _RecommendFeedTabState();
@@ -270,9 +282,15 @@ class _RecommendFeedTabState extends ConsumerState<_RecommendFeedTab> with Autom
           feedState.hasMore ? IndicatorResult.success : IndicatorResult.noMore,
         );
       },
-      child: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: CustomScrollView(
+          controller: _scrollController,
+          slivers: [
+            SliverToBoxAdapter(
+              child: SizedBox(height: widget.topContentInset),
+            ),
           if (feedState.errorMessage != null && feedState.threads.isEmpty)
             SliverFillRemaining(
               child: Center(
@@ -304,7 +322,8 @@ class _RecommendFeedTabState extends ConsumerState<_RecommendFeedTab> with Autom
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -312,7 +331,9 @@ class _RecommendFeedTabState extends ConsumerState<_RecommendFeedTab> with Autom
 
 /// 热榜分栏
 class _HotTopicTab extends ConsumerStatefulWidget {
-  const _HotTopicTab();
+  const _HotTopicTab({required this.topContentInset});
+
+  final double topContentInset;
 
   @override
   ConsumerState<_HotTopicTab> createState() => _HotTopicTabState();
@@ -345,8 +366,14 @@ class _HotTopicTabState extends ConsumerState<_HotTopicTab> with AutomaticKeepAl
         await ref.read(hotTopicControllerProvider.notifier).refresh();
         _refreshController.finishRefresh();
       },
-      child: CustomScrollView(
-        slivers: [
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: SizedBox(height: widget.topContentInset),
+            ),
           if (hotState.errorMessage != null && hotState.topics.isEmpty)
             SliverFillRemaining(
               child: Center(
@@ -378,7 +405,8 @@ class _HotTopicTabState extends ConsumerState<_HotTopicTab> with AutomaticKeepAl
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }

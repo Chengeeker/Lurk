@@ -8,6 +8,7 @@ import "../../features/feed/data/models/tieba_thread_model.dart";
 import "../../features/forum/presentation/forum_view.dart";
 import "../storage/storage_service.dart";
 import "../utils/haptic_feedback_util.dart";
+import "../utils/spring_page_route.dart";
 import "../widgets/app_web_view_page.dart";
 
 /// 统一贴吧链接智能路由与深层跳转分发中心
@@ -156,10 +157,9 @@ class LinkRoutingService {
   }) {
     if (!context.mounted) return;
     if (replace) {
-      Navigator.of(context)
-          .pushReplacement(MaterialPageRoute(builder: (_) => targetPage));
+      Navigator.of(context).pushReplacement(SpringPageRoute(page: targetPage));
     } else {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => targetPage));
+      Navigator.of(context).push(SpringPageRoute(page: targetPage));
     }
   }
 

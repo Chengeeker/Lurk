@@ -43,7 +43,6 @@ class ThreadDetailPage extends ConsumerStatefulWidget {
 class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
   final Object _imageGalleryHeroScope = Object();
   final ScrollController _scrollController = ScrollController();
-  final GlobalKey _mainArticleKey = GlobalKey();
   final Map<String, GlobalKey> _floorKeys = {};
   final EasyRefreshController _refreshController = EasyRefreshController(
     controlFinishRefresh: true,
@@ -66,11 +65,13 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
     if (targetFloor == null) return;
 
     _targetScrollScheduled = true;
+    // The first floor is already visible at the opening position; ensuring it
+    // again can move the author header beneath the translucent app bar.
+    if (targetFloor.floor == 1) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final key = targetFloor.floor == 1
-          ? _mainArticleKey
-          : _floorKeys[targetPostId];
+      final key = _floorKeys[targetPostId];
       final targetContext = key?.currentContext;
       if (targetContext == null) return;
       var alignment = 0.08;
@@ -419,17 +420,20 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                   : IndicatorResult.noMore,
             );
           },
-          child: CustomScrollView(
-            controller: _scrollController,
-            slivers: [
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: MediaQuery.paddingOf(context).top + kToolbarHeight,
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: CustomScrollView(
+              controller: _scrollController,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height:
+                        MediaQuery.viewPaddingOf(context).top + kToolbarHeight,
+                  ),
                 ),
-              ),
               // 1. LZ Article Post Hero Card (楼主正文卡片)
               SliverToBoxAdapter(
-                key: _mainArticleKey,
                 child: _buildMainArticleCard(context, detailState),
               ),
 
@@ -592,7 +596,8 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                 }(),
               ],
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+const lurkFrostedMaterialAlpha = 0.45;
+
 /// App bar with a localized blur over the app's translucent surface.
 ///
 /// The translucent color must be painted by the AppBar's Material itself;
@@ -17,6 +19,7 @@ class LurkFrostedAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.automaticallyImplyActions = true,
     this.flexibleSpace,
     this.bottom,
+    this.showBottomBorder = true,
     this.elevation,
     this.scrolledUnderElevation,
     this.notificationPredicate = defaultScrollNotificationPredicate,
@@ -50,6 +53,7 @@ class LurkFrostedAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool automaticallyImplyActions;
   final Widget? flexibleSpace;
   final PreferredSizeWidget? bottom;
+  final bool showBottomBorder;
   final double? elevation;
   final double? scrolledUnderElevation;
   final ScrollNotificationPredicate notificationPredicate;
@@ -93,37 +97,11 @@ class LurkFrostedAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: title,
       actions: actions,
       automaticallyImplyActions: automaticallyImplyActions,
-      flexibleSpace: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (flexibleSpace != null) flexibleSpace!,
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      baseColor.withValues(alpha: 0.95),
-                      baseColor.withValues(alpha: 0),
-                    ],
-                  ),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: theme.colorScheme.outlineVariant.withValues(
-                        alpha: 0.24,
-                      ),
-                      width: 0.5,
-                    ),
-                  ),
-                ),
-                child: const SizedBox.expand(),
-              ),
-            ],
-          ),
-        ),
+      flexibleSpace: LurkFrostedBackdrop(
+        color: baseColor,
+        borderColor: theme.colorScheme.outlineVariant,
+        showBottomBorder: showBottomBorder,
+        child: flexibleSpace,
       ),
       bottom: bottom,
       forceMaterialTransparency: false,
@@ -132,7 +110,7 @@ class LurkFrostedAppBar extends StatelessWidget implements PreferredSizeWidget {
       notificationPredicate: notificationPredicate,
       shadowColor: shadowColor,
       shape: shape,
-      backgroundColor: baseColor.withValues(alpha: 0.45),
+      backgroundColor: baseColor.withValues(alpha: lurkFrostedMaterialAlpha),
       surfaceTintColor: Colors.transparent,
       foregroundColor: foregroundColor,
       iconTheme: iconTheme,
@@ -152,6 +130,58 @@ class LurkFrostedAppBar extends StatelessWidget implements PreferredSizeWidget {
       clipBehavior: clipBehavior,
       actionsPadding: actionsPadding,
       animateColor: animateColor,
+    );
+  }
+}
+
+/// Shared tinted blur layer matching Review's implementation.
+class LurkFrostedBackdrop extends StatelessWidget {
+  const LurkFrostedBackdrop({
+    super.key,
+    required this.color,
+    required this.borderColor,
+    this.child,
+    this.showBottomBorder = true,
+  });
+
+  final Color color;
+  final Color borderColor;
+  final Widget? child;
+  final bool showBottomBorder;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (child != null) child!,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    color.withValues(alpha: 0.95),
+                    color.withValues(alpha: 0),
+                  ],
+                ),
+                border: showBottomBorder
+                    ? Border(
+                        bottom: BorderSide(
+                          color: borderColor.withValues(alpha: 0.24),
+                          width: 0.5,
+                        ),
+                      )
+                    : null,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

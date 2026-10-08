@@ -7,9 +7,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderClipRRect, RenderImage;
 
 import '../../../../core/services/media_save_service.dart';
+import '../../../../core/services/share_service.dart';
 import '../../../../core/utils/haptic_feedback_util.dart';
 import '../../../../core/constants/tieba_constants.dart';
 import '../../../../core/widgets/app_network_image.dart';
+import '../../../feed/presentation/widgets/tieba_video_player_page.dart';
+
+@immutable
+class GalleryMediaItem {
+  const GalleryMediaItem({
+    required this.imageUrl,
+    this.isVideo = false,
+    this.videoUrl = '',
+  });
+
+  final String imageUrl;
+  final bool isVideo;
+  final String videoUrl;
+}
 
 @immutable
 class ImageGalleryHeroTag {
@@ -245,25 +260,41 @@ class ImageGalleryHeroThumbnail extends StatelessWidget {
 
 class ImageGalleryPage extends StatefulWidget {
   final List<String> images;
+  final List<GalleryMediaItem>? mediaItems;
   final int initialIndex;
   final String? folderName;
   final Object? heroScope;
+  final String? threadId;
 
   const ImageGalleryPage({
     super.key,
     required this.images,
+    this.mediaItems,
     this.initialIndex = 0,
     this.folderName,
     this.heroScope,
+    this.threadId,
   });
 
   static void open(
     BuildContext context, {
-    required List<String> images,
+    List<String>? images,
+    List<GalleryMediaItem>? mediaItems,
     int initialIndex = 0,
     String? folderName,
     Object? heroScope,
+    String? threadId,
   }) {
+    final imageUrls =
+        images ?? mediaItems?.map((item) => item.imageUrl).toList();
+    if (imageUrls == null) {
+      throw ArgumentError('Provide images or mediaItems.');
+    }
+    if (imageUrls.isEmpty) return;
+    if (mediaItems != null && mediaItems.length != imageUrls.length) {
+      throw ArgumentError('images and mediaItems must have the same length.');
+    }
+    final startIndex = initialIndex.clamp(0, imageUrls.length - 1);
     Navigator.push(
       context,
       PageRouteBuilder(
@@ -272,10 +303,12 @@ class ImageGalleryPage extends StatefulWidget {
         transitionDuration: const Duration(milliseconds: 220),
         reverseTransitionDuration: const Duration(milliseconds: 200),
         pageBuilder: (context, _, __) => ImageGalleryPage(
-          images: images,
-          initialIndex: initialIndex,
+          images: imageUrls,
+          mediaItems: mediaItems,
+          initialIndex: startIndex,
           folderName: folderName,
           heroScope: heroScope,
+          threadId: threadId,
         ),
         transitionsBuilder: (_, animation, __, child) =>
             FadeTransition(opacity: animation, child: child),
@@ -301,11 +334,26 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
   int _thumbnailSyncEpoch = 0;
   bool _showChrome = true;
   bool _routeTransitionComplete = false;
+  bool _videoFullscreen = false;
+  double _videoBottomControlsHeight = 0;
+  double? _thumbnailScrollBottom;
+  String _currentVideoUrl = '';
+
+  GalleryMediaItem _mediaAt(int index) =>
+      widget.mediaItems?[index] ??
+      GalleryMediaItem(imageUrl: widget.images[index]);
+
+  double get _thumbnailBottom =>
+      _thumbnailScrollBottom ??
+      (_mediaAt(_currentIndex).isVideo && _videoBottomControlsHeight > 0
+          ? _videoBottomControlsHeight + 8
+          : MediaQuery.paddingOf(context).bottom + 32);
 
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _currentVideoUrl = _mediaAt(widget.initialIndex).videoUrl;
     _pageController = ExtendedPageController(initialPage: widget.initialIndex);
     _thumbnailController = PageController(
       initialPage: widget.initialIndex,
@@ -382,7 +430,9 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
 
   Widget _withGalleryHero(int index, Widget child) {
     final scope = widget.heroScope;
-    if (scope == null || index != _currentIndex) return child;
+    if (scope == null || index != _currentIndex || _mediaAt(index).isVideo) {
+      return child;
+    }
     return Hero(
       tag: ImageGalleryHeroTag(
         scope: scope,
@@ -402,6 +452,29 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
     } else {
       Navigator.of(context).pop();
     }
+  }
+
+  void _handleVideoFullscreenChanged(bool isFullscreen) {
+    if (!mounted) return;
+    setState(() {
+      _videoFullscreen = isFullscreen;
+      _showChrome = !isFullscreen;
+    });
+  }
+
+  void _handleVideoControlsChanged(bool visible) {
+    if (!mounted || _videoFullscreen || _showChrome == visible) return;
+    setState(() => _showChrome = visible);
+  }
+
+  void _handleVideoBottomControlsHeightChanged(double height) {
+    if (!mounted || (_videoBottomControlsHeight - height).abs() < 0.5) return;
+    setState(() => _videoBottomControlsHeight = height);
+  }
+
+  void _handleVideoUrlChanged(String url) {
+    if (!mounted || _currentVideoUrl == url) return;
+    setState(() => _currentVideoUrl = url);
   }
 
   void _selectThumbnail(int index) {
@@ -460,7 +533,10 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
         ),
       ]).whenComplete(() {
         if (!mounted || epoch != _thumbnailSyncEpoch) return;
-        _thumbnailSettling = false;
+        setState(() {
+          _thumbnailSettling = false;
+          _thumbnailScrollBottom = null;
+        });
       }),
     );
   }
@@ -472,6 +548,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
       _thumbnailSyncEpoch++;
       _thumbnailSettling = false;
       _thumbnailUserScrolling = true;
+      setState(() => _thumbnailScrollBottom ??= _thumbnailBottom);
     } else if (notification is ScrollEndNotification &&
         _thumbnailUserScrolling) {
       _settleThumbnailScroll();
@@ -491,8 +568,11 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
           itemCount: widget.images.length,
           itemBuilder: (context, index) {
             final selected = index == _currentIndex;
+            final item = _mediaAt(index);
             return Semantics(
-              label: '第 ${index + 1} 张图片',
+              label: item.isVideo
+                  ? '第 ${index + 1} 项，视频'
+                  : '第 ${index + 1} 张图片',
               selected: selected,
               button: true,
               child: GestureDetector(
@@ -523,7 +603,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                         fit: StackFit.expand,
                         children: [
                           ExtendedImage.network(
-                            AppNetworkImage.safeUrl(widget.images[index]),
+                            AppNetworkImage.safeUrl(item.imageUrl),
                             fit: BoxFit.cover,
                             cache: true,
                             cacheWidth: 160,
@@ -531,6 +611,14 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                               'User-Agent': TiebaConstants.defaultUserAgent,
                             },
                           ),
+                          if (item.isVideo)
+                            const Center(
+                              child: Icon(
+                                Icons.play_circle_fill_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
                           if (!selected)
                             const ColoredBox(color: Colors.white30),
                         ],
@@ -556,235 +644,340 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
       ),
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapUp: _handleGalleryTap,
-          child: Stack(
-            children: [
-              NotificationListener<ScrollStartNotification>(
-                onNotification: (notification) {
-                  if (notification.depth == 0 &&
-                      notification.dragDetails != null) {
-                    _thumbnailSyncEpoch++;
-                    _thumbnailUserScrolling = false;
-                    _thumbnailSettling = false;
+        body: Stack(
+          children: [
+            NotificationListener<ScrollStartNotification>(
+              onNotification: (notification) {
+                if (notification.depth == 0 &&
+                    notification.dragDetails != null) {
+                  _thumbnailSyncEpoch++;
+                  _thumbnailUserScrolling = false;
+                  _thumbnailSettling = false;
+                }
+                return false;
+              },
+              child: ExtendedImageGesturePageView.builder(
+                controller: _pageController,
+                physics: const ClampingScrollPhysics(),
+                itemCount: widget.images.length,
+                onPageChanged: (i) {
+                  if (i != _currentIndex) {
+                    if (_thumbnailUserScrolling) {
+                      HapticFeedbackUtil.selectionTick();
+                    } else if (!_thumbnailSettling) {
+                      HapticFeedbackUtil.selection();
+                    }
                   }
-                  return false;
+                  setState(() {
+                    if (i != _currentIndex && _videoFullscreen) {
+                      _videoFullscreen = false;
+                      _showChrome = true;
+                    }
+                    if (_mediaAt(i).isVideo) _videoBottomControlsHeight = 0;
+                    _currentVideoUrl = _mediaAt(i).videoUrl;
+                    _currentIndex = i;
+                  });
+                  if (!_thumbnailUserScrolling &&
+                      !_thumbnailSettling &&
+                      _thumbnailController.hasClients) {
+                    _thumbnailController.jumpToPage(i);
+                  }
                 },
-                child: ExtendedImageGesturePageView.builder(
-                  controller: _pageController,
-                  physics: const ClampingScrollPhysics(),
-                  itemCount: widget.images.length,
-                  onPageChanged: (i) {
-                    if (i != _currentIndex) {
-                      if (_thumbnailUserScrolling) {
-                        HapticFeedbackUtil.selectionTick();
-                      } else if (!_thumbnailSettling) {
-                        HapticFeedbackUtil.selection();
-                      }
+                itemBuilder: (context, index) {
+                  final item = _mediaAt(index);
+                  if (item.isVideo) {
+                    if (index == _currentIndex &&
+                        !_thumbnailUserScrolling &&
+                        !_thumbnailSettling) {
+                      return TiebaVideoPlayerPage(
+                        key: ValueKey('gallery-video-$index'),
+                        videoUrl: item.videoUrl,
+                        coverUrl: item.imageUrl,
+                        threadId: widget.threadId,
+                        authorName: widget.folderName,
+                        embedded: true,
+                        onFullscreenChanged: (isFullscreen) {
+                          if (index == _currentIndex) {
+                            _handleVideoFullscreenChanged(isFullscreen);
+                          }
+                        },
+                        onControlsVisibilityChanged: (visible) {
+                          if (index == _currentIndex) {
+                            _handleVideoControlsChanged(visible);
+                          }
+                        },
+                        onBottomControlsHeightChanged: (height) {
+                          if (index == _currentIndex) {
+                            _handleVideoBottomControlsHeightChanged(height);
+                          }
+                        },
+                        onVideoUrlChanged: (url) {
+                          if (index == _currentIndex) {
+                            _handleVideoUrlChanged(url);
+                          }
+                        },
+                      );
                     }
-                    setState(() => _currentIndex = i);
-                    if (!_thumbnailUserScrolling &&
-                        !_thumbnailSettling &&
-                        _thumbnailController.hasClients) {
-                      _thumbnailController.jumpToPage(i);
-                    }
-                  },
-                  itemBuilder: (context, index) {
-                    final url = AppNetworkImage.safeUrl(widget.images[index]);
-                    final image = ExtendedImage.network(
-                      url,
-                      fit: BoxFit.contain,
-                      mode: ExtendedImageMode.gesture,
-                      cache: true,
-                      headers: {'User-Agent': TiebaConstants.defaultUserAgent},
-                      onDoubleTap: (state) {
-                        _animateDoubleTap(state);
-                      },
-                      enableSlideOutPage: false,
-                      initGestureConfigHandler: (state) {
-                        return GestureConfig(
-                          minScale: 1.0,
-                          animationMinScale: 1.0,
-                          maxScale: 8.0,
-                          animationMaxScale: 9.0,
-                          speed: 1.0,
-                          inertialSpeed: 120.0,
-                          initialScale: 1.0,
-                          inPageView: true,
-                          initialAlignment: InitialAlignment.center,
-                        );
-                      },
-                      loadStateChanged: (state) {
-                        switch (state.extendedImageLoadState) {
-                          case LoadState.loading:
-                            return const Center(
-                              child: SizedBox(
-                                width: 32,
-                                height: 32,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white70,
-                                  ),
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        ExtendedImage.network(
+                          AppNetworkImage.safeUrl(item.imageUrl),
+                          fit: BoxFit.contain,
+                          cache: true,
+                          headers: {
+                            'User-Agent': TiebaConstants.defaultUserAgent,
+                          },
+                        ),
+                        const Icon(
+                          Icons.play_circle_fill_rounded,
+                          color: Colors.white,
+                          size: 64,
+                        ),
+                      ],
+                    );
+                  }
+                  final url = AppNetworkImage.safeUrl(item.imageUrl);
+                  final image = ExtendedImage.network(
+                    url,
+                    fit: BoxFit.contain,
+                    mode: ExtendedImageMode.gesture,
+                    cache: true,
+                    headers: {'User-Agent': TiebaConstants.defaultUserAgent},
+                    onDoubleTap: (state) {
+                      _animateDoubleTap(state);
+                    },
+                    enableSlideOutPage: false,
+                    initGestureConfigHandler: (state) {
+                      return GestureConfig(
+                        minScale: 1.0,
+                        animationMinScale: 1.0,
+                        maxScale: 8.0,
+                        animationMaxScale: 9.0,
+                        speed: 1.0,
+                        inertialSpeed: 120.0,
+                        initialScale: 1.0,
+                        inPageView: true,
+                        initialAlignment: InitialAlignment.center,
+                      );
+                    },
+                    loadStateChanged: (state) {
+                      switch (state.extendedImageLoadState) {
+                        case LoadState.loading:
+                          return const Center(
+                            child: SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white70,
                                 ),
                               ),
-                            );
-                          case LoadState.failed:
-                            return Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.broken_image_rounded,
-                                    size: 40,
-                                    color: Colors.white54,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Text(
-                                    '图片加载失败',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  OutlinedButton.icon(
-                                    onPressed: () => state.reLoadImage(),
-                                    icon: const Icon(
-                                      Icons.refresh_rounded,
-                                      size: 16,
-                                      color: Colors.white,
-                                    ),
-                                    label: const Text(
-                                      '点击重试',
-                                      style: TextStyle(color: Colors.white),
-                                    ),
-                                    style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(
-                                        color: Colors.white38,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          case LoadState.completed:
-                            return null;
-                        }
-                      },
-                    );
-                    return _withGalleryHero(index, image);
-                  },
-                ),
-              ),
-              if (widget.images.length > 1)
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: MediaQuery.paddingOf(context).bottom + 32,
-                  child: IgnorePointer(
-                    ignoring: !_showChrome || !_routeTransitionComplete,
-                    child: AnimatedOpacity(
-                      opacity: _showChrome && _routeTransitionComplete ? 1 : 0,
-                      duration: const Duration(milliseconds: 160),
-                      curve: Curves.easeOut,
-                      child: _buildThumbnailStrip(),
-                    ),
-                  ),
-                ),
-              if (_showChrome && _routeTransitionComplete)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    padding: EdgeInsets.only(
-                      top: MediaQuery.of(context).padding.top + 8,
-                      left: 16,
-                      right: 16,
-                      bottom: 24,
-                    ),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black87,
-                          Colors.black38,
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _GalleryGlassIconButton(
-                          tooltip: '关闭',
-                          icon: const Icon(
-                            Icons.close_rounded,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                        if (widget.images.length > 1)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 6,
                             ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.25),
-                                width: 0.8,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.4),
-                                  blurRadius: 8,
+                          );
+                        case LoadState.failed:
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.broken_image_rounded,
+                                  size: 40,
+                                  color: Colors.white54,
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  '图片加载失败',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                OutlinedButton.icon(
+                                  onPressed: () => state.reLoadImage(),
+                                  icon: const Icon(
+                                    Icons.refresh_rounded,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text(
+                                    '点击重试',
+                                    style: TextStyle(color: Colors.white),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(
+                                      color: Colors.white38,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
-                            child: Text(
-                              '${_currentIndex + 1} / ${widget.images.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        _GalleryGlassIconButton(
-                          tooltip: '保存图片',
-                          icon: const Icon(
-                            Icons.download_rounded,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                          onPressed: () {
-                            if (widget.images.isNotEmpty) {
-                              final currentUrl = widget.images[_currentIndex];
-                              MediaSaveService.saveImage(
-                                context,
-                                currentUrl,
-                                folderName: widget.folderName,
-                              );
-                            }
-                          },
-                        ),
-                      ],
-                    ),
+                          );
+                        case LoadState.completed:
+                          return null;
+                      }
+                    },
+                  );
+                  return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapUp: _handleGalleryTap,
+                    child: _withGalleryHero(index, image),
+                  );
+                },
+              ),
+            ),
+            if (widget.images.length > 1)
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: _thumbnailBottom,
+                child: IgnorePointer(
+                  ignoring: !_showChrome || !_routeTransitionComplete,
+                  child: AnimatedOpacity(
+                    opacity: _showChrome && _routeTransitionComplete ? 1 : 0,
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    child: _buildThumbnailStrip(),
                   ),
                 ),
-            ],
-          ),
+              ),
+            if (_showChrome && _routeTransitionComplete)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 8,
+                    left: 16,
+                    right: 16,
+                    bottom: 24,
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 96,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: _GalleryGlassIconButton(
+                            tooltip: '关闭',
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Center(
+                          child: widget.images.length > 1
+                              ? Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.55),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.25,
+                                      ),
+                                      width: 0.8,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    '${_currentIndex + 1} / ${widget.images.length}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 96,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (_mediaAt(_currentIndex).isVideo &&
+                                widget.threadId?.isNotEmpty == true)
+                              _GalleryGlassIconButton(
+                                tooltip: '分享视频',
+                                icon: const Icon(
+                                  Icons.share_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  final id = widget.threadId!;
+                                  ShareService.shareTextContent(
+                                    context,
+                                    text: '贴吧视频\nhttps://tieba.baidu.com/p/$id',
+                                    title: '贴吧视频',
+                                    fallbackMessage: '视频链接已复制到剪贴板',
+                                  );
+                                },
+                              )
+                            else
+                              const SizedBox(width: 48),
+                            if (!_mediaAt(_currentIndex).isVideo ||
+                                _currentVideoUrl.isNotEmpty)
+                              _GalleryGlassIconButton(
+                                tooltip: _mediaAt(_currentIndex).isVideo
+                                    ? '保存视频'
+                                    : '保存图片',
+                                icon: const Icon(
+                                  Icons.download_rounded,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                                onPressed: () {
+                                  final item = _mediaAt(_currentIndex);
+                                  if (item.isVideo) {
+                                    MediaSaveService.saveVideo(
+                                      context,
+                                      _currentVideoUrl,
+                                      folderName: widget.folderName,
+                                    );
+                                  } else {
+                                    MediaSaveService.saveImage(
+                                      context,
+                                      item.imageUrl,
+                                      folderName: widget.folderName,
+                                    );
+                                  }
+                                },
+                              )
+                            else
+                              const SizedBox(width: 48),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

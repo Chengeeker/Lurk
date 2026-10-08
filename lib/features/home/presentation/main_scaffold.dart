@@ -21,23 +21,49 @@ class MainScaffold extends ConsumerStatefulWidget {
   ConsumerState<MainScaffold> createState() => _MainScaffoldState();
 }
 
-class _MainScaffoldState extends ConsumerState<MainScaffold> {
+class _MainScaffoldState extends ConsumerState<MainScaffold>
+    with SingleTickerProviderStateMixin {
   int _currentIndex = 1;
   DateTime? _lastTimelineTapTime;
   Timer? _timelineSingleTapTimer;
+  late final AnimationController _tabTransitionController;
+  late final CurvedAnimation _tabTransitionCurve;
+  late Animation<Offset> _tabIncomingTransition;
+  late Animation<Offset> _tabOutgoingTransition;
+  int _previousIndex = 1;
+  bool _isTabTransitioning = false;
 
   @override
   void initState() {
     super.initState();
+    _tabTransitionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+      value: 1,
+    );
+    _tabTransitionCurve = CurvedAnimation(
+      parent: _tabTransitionController,
+      curve: Curves.easeOutCubic,
+    );
+    _tabIncomingTransition = const AlwaysStoppedAnimation(Offset.zero);
+    _tabOutgoingTransition = const AlwaysStoppedAnimation(Offset.zero);
     final habitState = ref.read(habitSettingsProvider);
     _currentIndex = (habitState.initialTabIndex >= 0 && habitState.initialTabIndex < 4)
         ? habitState.initialTabIndex
         : 1;
+    _previousIndex = _currentIndex;
+    _tabTransitionController.addStatusListener((status) {
+      if (status == AnimationStatus.completed && _isTabTransitioning && mounted) {
+        setState(() => _isTabTransitioning = false);
+      }
+    });
   }
 
   @override
   void dispose() {
     _timelineSingleTapTimer?.cancel();
+    _tabTransitionCurve.dispose();
+    _tabTransitionController.dispose();
     super.dispose();
   }
 
@@ -53,7 +79,38 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     if (index != _currentIndex) {
       _timelineSingleTapTimer?.cancel();
       _lastTimelineTapTime = null;
-      setState(() => _currentIndex = index);
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _tabTransitionController.stop();
+        setState(() {
+          _previousIndex = index;
+          _currentIndex = index;
+          _isTabTransitioning = false;
+          _tabIncomingTransition = const AlwaysStoppedAnimation(Offset.zero);
+          _tabOutgoingTransition = const AlwaysStoppedAnimation(Offset.zero);
+        });
+        _tabTransitionController.value = 1;
+        return;
+      }
+
+      final currentOffset = _isTabTransitioning
+          ? _tabIncomingTransition.value
+          : Offset.zero;
+      var direction = index > _currentIndex ? 1.0 : -1.0;
+      if (Directionality.of(context) == TextDirection.rtl) direction *= -1;
+      setState(() {
+        _previousIndex = _currentIndex;
+        _currentIndex = index;
+        _isTabTransitioning = true;
+        _tabIncomingTransition = Tween<Offset>(
+          begin: Offset(direction, 0),
+          end: Offset.zero,
+        ).animate(_tabTransitionCurve);
+        _tabOutgoingTransition = Tween<Offset>(
+          begin: currentOffset,
+          end: Offset(-direction, 0),
+        ).animate(_tabTransitionCurve);
+      });
+      _tabTransitionController.forward(from: 0);
       return;
     }
 
@@ -74,6 +131,46 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
         });
       }
     }
+  }
+
+  Widget _buildTabContent() {
+    final pageOrder = List<int>.generate(_pages.length, (index) => index)
+      ..sort((a, b) => _tabPageLayer(a).compareTo(_tabPageLayer(b)));
+
+    return Stack(
+      clipBehavior: Clip.hardEdge,
+      children: [
+        for (final index in pageOrder)
+          Positioned.fill(
+            key: ValueKey(index),
+            child: Offstage(
+              offstage: index != _currentIndex &&
+                  (!_isTabTransitioning || index != _previousIndex),
+              child: TickerMode(
+                enabled: index == _currentIndex ||
+                    (_isTabTransitioning && index == _previousIndex),
+                child: IgnorePointer(
+                  ignoring: index != _currentIndex,
+                  child: SlideTransition(
+                    position: index == _currentIndex
+                        ? _tabIncomingTransition
+                        : index == _previousIndex && _isTabTransitioning
+                        ? _tabOutgoingTransition
+                        : const AlwaysStoppedAnimation(Offset.zero),
+                    child: _pages[index],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  int _tabPageLayer(int index) {
+    if (_isTabTransitioning && index == _previousIndex) return 1;
+    if (index == _currentIndex) return 2;
+    return 0;
   }
 
   @override
@@ -177,10 +274,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       key: scaffoldKey,
       body: Stack(
         children: [
-          IndexedStack(
-            index: _currentIndex,
-            children: _pages,
-          ),
+          _buildTabContent(),
           if (useFloating)
             Positioned(
               left: 0,

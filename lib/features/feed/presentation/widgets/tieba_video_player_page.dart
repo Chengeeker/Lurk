@@ -24,6 +24,11 @@ class TiebaVideoPlayerPage extends ConsumerStatefulWidget {
   final String? authorName;
   final String? threadId;
   final Map<String, String>? videoQualityUrls;
+  final bool embedded;
+  final ValueChanged<bool>? onFullscreenChanged;
+  final ValueChanged<bool>? onControlsVisibilityChanged;
+  final ValueChanged<double>? onBottomControlsHeightChanged;
+  final ValueChanged<String>? onVideoUrlChanged;
 
   const TiebaVideoPlayerPage({
     super.key,
@@ -33,6 +38,11 @@ class TiebaVideoPlayerPage extends ConsumerStatefulWidget {
     this.authorName,
     this.threadId,
     this.videoQualityUrls,
+    this.embedded = false,
+    this.onFullscreenChanged,
+    this.onControlsVisibilityChanged,
+    this.onBottomControlsHeightChanged,
+    this.onVideoUrlChanged,
   });
 
   @override
@@ -77,6 +87,7 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
   bool _fastForwardGestureConsumed = false;
   bool _isLandscape = false;
   bool _brightnessChanged = false;
+  final GlobalKey _bottomControlsKey = GlobalKey();
   Offset _lastTapDownPosition = Offset.zero;
   Offset _panStartPosition = Offset.zero;
   _DragMode _dragMode = _DragMode.none;
@@ -188,6 +199,7 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
         }
         if (foundVideoUrl != null && foundVideoUrl.isNotEmpty) {
           _effectiveVideoUrl = foundVideoUrl;
+          widget.onVideoUrlChanged?.call(foundVideoUrl);
           _qualityMap["高清"] = foundVideoUrl;
           if (mounted) setState(() => _isLoadingDynamic = false);
           _initPlayer(overrideUrl: foundVideoUrl);
@@ -221,6 +233,7 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
     final previousController = _controller;
     _controller = null;
     _effectiveVideoUrl = targetUrl;
+    widget.onVideoUrlChanged?.call(targetUrl);
     final primaryUrl = targetUrl.trim();
     final fallbackUrl = primaryUrl.startsWith("http://")
         ? primaryUrl.replaceFirst("http://", "https://")
@@ -266,6 +279,7 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
         _controller = controller;
         await controller.initialize();
         _effectiveVideoUrl = fallbackUrl;
+        widget.onVideoUrlChanged?.call(fallbackUrl);
       }
 
       if (!mounted ||
@@ -348,6 +362,7 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
     if (_controller!.value.isPlaying) {
       _controller!.pause();
       setState(() => _showControls = true);
+      widget.onControlsVisibilityChanged?.call(true);
     } else {
       _controller!.play();
       setState(() {});
@@ -408,6 +423,8 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
 
   void _toggleControls() {
     setState(() => _showControls = !_showControls);
+    widget.onControlsVisibilityChanged?.call(_showControls);
+    if (!_showControls) widget.onBottomControlsHeightChanged?.call(0);
     _resetControlsTimer();
   }
 
@@ -417,6 +434,8 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
       _hideControlsTimer = Timer(const Duration(seconds: 4), () {
         if (mounted && _controller?.value.isPlaying == true) {
           setState(() => _showControls = false);
+          widget.onControlsVisibilityChanged?.call(false);
+          widget.onBottomControlsHeightChanged?.call(0);
         }
       });
     }
@@ -439,7 +458,35 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
     } else {
       _restorePortraitAndSystemUI();
     }
+    widget.onFullscreenChanged?.call(nextLandscape);
     _resetControlsTimer();
+  }
+
+  void _reportBottomControlsHeight() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final box = _bottomControlsKey.currentContext?.findRenderObject();
+      if (box is RenderBox && box.hasSize) {
+        widget.onBottomControlsHeightChanged?.call(box.size.height);
+      }
+    });
+  }
+
+  Widget _measureBottomControls(Widget controls) {
+    if (widget.onBottomControlsHeightChanged == null) return controls;
+    if (_bottomControlsKey.currentContext == null) {
+      _reportBottomControlsHeight();
+    }
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        _reportBottomControlsHeight();
+        return false;
+      },
+      child: SizeChangedLayoutNotifier(
+        key: _bottomControlsKey,
+        child: controls,
+      ),
+    );
   }
 
   void _seekRelative(int deltaSeconds) {
@@ -873,7 +920,7 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
               ),
 
             // 3. 顶部导航与保存视频栏 (高反差圆底，任何背景均清晰醒目)
-            if (_showControls)
+            if (_showControls && (!widget.embedded || _isLandscape))
               Positioned(
                 top: 0,
                 left: 0,
@@ -1028,130 +1075,135 @@ class _TiebaVideoPlayerPageState extends ConsumerState<TiebaVideoPlayerPage> {
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: Container(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).padding.bottom + 8,
-                    left: 16,
-                    right: 16,
-                    top: 16,
-                  ),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [Colors.black87, Colors.transparent],
+                child: _measureBottomControls(
+                  Container(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 8,
+                      left: 16,
+                      right: 16,
+                      top: 16,
                     ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // 进度条
-                      Row(
-                        children: [
-                          Text(
-                            _formatDuration(_controller!.value.position),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
-                          ),
-                          Expanded(
-                            child: SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                trackHeight: 3.0,
-                                thumbShape: const RoundSliderThumbShape(
-                                  enabledThumbRadius: 6.0,
-                                ),
-                                activeTrackColor: Colors.amberAccent,
-                                inactiveTrackColor: Colors.white24,
-                                thumbColor: Colors.amberAccent,
-                              ),
-                              child: Slider(
-                                value: _controller!
-                                    .value
-                                    .position
-                                    .inMilliseconds
-                                    .toDouble(),
-                                min: 0.0,
-                                max: _controller!.value.duration.inMilliseconds
-                                    .toDouble(),
-                                onChanged: (value) {
-                                  _controller!.seekTo(
-                                    Duration(milliseconds: value.toInt()),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          Text(
-                            _formatDuration(_controller!.value.duration),
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [Colors.black87, Colors.transparent],
                       ),
-                      const SizedBox(height: 4),
-
-                      // 底部按钮控制栏 (播放/暂停、清晰度选择、倍速选择)
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              _controller!.value.isPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              color: Colors.white,
-                              size: 32,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // 进度条
+                        Row(
+                          children: [
+                            Text(
+                              _formatDuration(_controller!.value.position),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                             ),
-                            onPressed: _togglePlayPause,
-                          ),
-                          const Spacer(),
+                            Expanded(
+                              child: SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 3.0,
+                                  thumbShape: const RoundSliderThumbShape(
+                                    enabledThumbRadius: 6.0,
+                                  ),
+                                  activeTrackColor: Colors.amberAccent,
+                                  inactiveTrackColor: Colors.white24,
+                                  thumbColor: Colors.amberAccent,
+                                ),
+                                child: Slider(
+                                  value: _controller!
+                                      .value
+                                      .position
+                                      .inMilliseconds
+                                      .toDouble(),
+                                  min: 0.0,
+                                  max: _controller!
+                                      .value
+                                      .duration
+                                      .inMilliseconds
+                                      .toDouble(),
+                                  onChanged: (value) {
+                                    _controller!.seekTo(
+                                      Duration(milliseconds: value.toInt()),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                            Text(
+                              _formatDuration(_controller!.value.duration),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
 
-                          // 清晰度按钮
-                          if (_qualityMap.length > 1)
+                        // 底部按钮控制栏 (播放/暂停、清晰度选择、倍速选择)
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                _controller!.value.isPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 32,
+                              ),
+                              onPressed: _togglePlayPause,
+                            ),
+                            const Spacer(),
+
+                            // 清晰度按钮
+                            if (_qualityMap.length > 1)
+                              TextButton(
+                                onPressed: _showQualityBottomSheet,
+                                child: Text(
+                                  _currentQuality,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+
+                            // 倍速按钮
                             TextButton(
-                              onPressed: _showQualityBottomSheet,
+                              onPressed: _showSpeedBottomSheet,
                               child: Text(
-                                _currentQuality,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                _playbackSpeed == 1.0
+                                    ? "倍速"
+                                    : "${_playbackSpeed}X",
+                                style: TextStyle(
+                                  color: _playbackSpeed == 1.0
+                                      ? Colors.white
+                                      : Colors.amberAccent,
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
-
-                          // 倍速按钮
-                          TextButton(
-                            onPressed: _showSpeedBottomSheet,
-                            child: Text(
-                              _playbackSpeed == 1.0
-                                  ? "倍速"
-                                  : "${_playbackSpeed}X",
-                              style: TextStyle(
-                                color: _playbackSpeed == 1.0
-                                    ? Colors.white
-                                    : Colors.amberAccent,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
+                            IconButton(
+                              tooltip: _isLandscape ? "退出横屏" : "横屏播放",
+                              icon: Icon(
+                                _isLandscape
+                                    ? Icons.fullscreen_exit_rounded
+                                    : Icons.fullscreen_rounded,
+                                color: Colors.white,
                               ),
+                              onPressed: _toggleOrientation,
                             ),
-                          ),
-                          IconButton(
-                            tooltip: _isLandscape ? "退出横屏" : "横屏播放",
-                            icon: Icon(
-                              _isLandscape
-                                  ? Icons.fullscreen_exit_rounded
-                                  : Icons.fullscreen_rounded,
-                              color: Colors.white,
-                            ),
-                            onPressed: _toggleOrientation,
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
