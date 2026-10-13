@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:extended_image/extended_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderClipRRect, RenderImage;
 
@@ -335,6 +336,14 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
   bool _showChrome = true;
   bool _routeTransitionComplete = false;
   bool _videoFullscreen = false;
+  Timer? _galleryTapTimer;
+  Offset? _pendingGalleryTapPosition;
+  Duration? _pendingGalleryTapTime;
+  int? _trackedGalleryPointer;
+  Offset? _galleryPointerDownPosition;
+  bool _galleryPointerMoved = false;
+  bool _galleryPointerMultitouch = false;
+  bool _galleryDoubleTapCandidate = false;
   double _videoBottomControlsHeight = 0;
   double? _thumbnailScrollBottom;
   String _currentVideoUrl = '';
@@ -386,6 +395,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
   @override
   void dispose() {
     _thumbnailSyncEpoch++;
+    _cancelPendingGalleryTap();
     _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
     _thumbnailController
       ..removeListener(_syncMainPageToThumbnail)
@@ -399,6 +409,8 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
   }
 
   void _animateDoubleTap(ExtendedImageGestureState state) {
+    _cancelPendingGalleryTap();
+    HapticFeedbackUtil.selectionTick();
     final pointerPosition = state.pointerDownPosition;
     final currentScale = state.gestureDetails?.totalScale ?? 1.0;
     final targetScale = currentScale <= 1.05
@@ -444,14 +456,92 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
     );
   }
 
-  void _handleGalleryTap(TapUpDetails details) {
+  void _handleGalleryTapAt(Offset globalPosition) {
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final x = details.globalPosition.dx;
+    final x = globalPosition.dx;
     if (x >= screenWidth / 3 && x < screenWidth * 2 / 3) {
       setState(() => _showChrome = !_showChrome);
     } else {
       Navigator.of(context).pop();
     }
+  }
+
+  void _handleGalleryPointerDown(PointerDownEvent event) {
+    if (_trackedGalleryPointer != null) {
+      _galleryPointerMultitouch = true;
+      return;
+    }
+
+    _trackedGalleryPointer = event.pointer;
+    _galleryPointerDownPosition = event.position;
+    _galleryPointerMoved = false;
+    _galleryPointerMultitouch = false;
+
+    final pendingPosition = _pendingGalleryTapPosition;
+    final pendingTime = _pendingGalleryTapTime;
+    _galleryDoubleTapCandidate =
+        pendingPosition != null &&
+        pendingTime != null &&
+        event.timeStamp - pendingTime <= kDoubleTapTimeout &&
+        (event.position - pendingPosition).distance <= kDoubleTapSlop;
+    if (_galleryDoubleTapCandidate) {
+      _galleryTapTimer?.cancel();
+      _galleryTapTimer = null;
+    } else {
+      _dispatchPendingGalleryTap();
+    }
+  }
+
+  void _handleGalleryPointerMove(PointerMoveEvent event) {
+    if (event.pointer != _trackedGalleryPointer) return;
+    final start = _galleryPointerDownPosition;
+    if (start != null && (event.position - start).distance > kTouchSlop) {
+      _galleryPointerMoved = true;
+    }
+  }
+
+  void _handleGalleryPointerUp(PointerUpEvent event) {
+    if (event.pointer != _trackedGalleryPointer) return;
+    final isTap = !_galleryPointerMoved && !_galleryPointerMultitouch;
+    if (_galleryDoubleTapCandidate) {
+      if (isTap) {
+        _cancelPendingGalleryTap();
+      } else {
+        _dispatchPendingGalleryTap();
+      }
+    } else if (isTap) {
+      _pendingGalleryTapPosition = event.position;
+      _pendingGalleryTapTime = event.timeStamp;
+      _galleryTapTimer = Timer(kDoubleTapTimeout, _dispatchPendingGalleryTap);
+    }
+    _resetGalleryPointerTracking();
+  }
+
+  void _handleGalleryPointerCancel(PointerCancelEvent event) {
+    if (event.pointer != _trackedGalleryPointer) return;
+    if (_galleryDoubleTapCandidate) _dispatchPendingGalleryTap();
+    _resetGalleryPointerTracking();
+  }
+
+  void _resetGalleryPointerTracking() {
+    _trackedGalleryPointer = null;
+    _galleryPointerDownPosition = null;
+    _galleryPointerMoved = false;
+    _galleryPointerMultitouch = false;
+    _galleryDoubleTapCandidate = false;
+  }
+
+  void _dispatchPendingGalleryTap() {
+    final position = _pendingGalleryTapPosition;
+    _cancelPendingGalleryTap();
+    if (position != null && mounted) _handleGalleryTapAt(position);
+  }
+
+  void _cancelPendingGalleryTap() {
+    _galleryTapTimer?.cancel();
+    _galleryTapTimer = null;
+    _pendingGalleryTapPosition = null;
+    _pendingGalleryTapTime = null;
   }
 
   void _handleVideoFullscreenChanged(bool isFullscreen) {
@@ -478,6 +568,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
   }
 
   void _selectThumbnail(int index) {
+    _cancelPendingGalleryTap();
     if (index != _currentIndex && _pageController.hasClients) {
       _pageController.jumpToPage(index);
     }
@@ -662,6 +753,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                 itemCount: widget.images.length,
                 onPageChanged: (i) {
                   if (i != _currentIndex) {
+                    _cancelPendingGalleryTap();
                     if (_thumbnailUserScrolling) {
                       HapticFeedbackUtil.selectionTick();
                     } else if (!_thumbnailSettling) {
@@ -823,10 +915,16 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                       }
                     },
                   );
-                  return GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTapUp: _handleGalleryTap,
-                    child: _withGalleryHero(index, image),
+                  return Semantics(
+                    onTap: () => setState(() => _showChrome = !_showChrome),
+                    child: Listener(
+                      behavior: HitTestBehavior.opaque,
+                      onPointerDown: _handleGalleryPointerDown,
+                      onPointerMove: _handleGalleryPointerMove,
+                      onPointerUp: _handleGalleryPointerUp,
+                      onPointerCancel: _handleGalleryPointerCancel,
+                      child: _withGalleryHero(index, image),
+                    ),
                   );
                 },
               ),
