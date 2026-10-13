@@ -201,7 +201,9 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
         side: BorderSide.none,
       ),
       child: InkWell(
+        splashFactory: NoSplash.splashFactory,
         onTap: () {
+          HapticFeedbackUtil.light();
           Navigator.push(
             context,
             SpringPageRoute(
@@ -345,8 +347,10 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: InkWell(
+                    splashFactory: InkSplash.splashFactory,
                     borderRadius: BorderRadius.circular(6),
                     onTap: () {
+                      HapticFeedbackUtil.light();
                       Navigator.push(
                         context,
                         SpringPageRoute(
@@ -410,6 +414,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                   // 分享
                   Expanded(
                     child: InkWell(
+                      splashFactory: InkSplash.splashFactory,
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
                         HapticFeedbackUtil.light();
@@ -442,6 +447,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                   // 回复
                   Expanded(
                     child: InkWell(
+                      splashFactory: InkSplash.splashFactory,
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
                         HapticFeedbackUtil.light();
@@ -485,6 +491,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                   // 点赞
                   Expanded(
                     child: InkWell(
+                      splashFactory: InkSplash.splashFactory,
                       borderRadius: BorderRadius.circular(16),
                       onTap: _handleToggleAgree,
                       child: Padding(

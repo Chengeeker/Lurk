@@ -549,6 +549,7 @@ class _ForumViewState extends ConsumerState<ForumView> {
     final rule = forum?.rule;
     final pinnedThreads = forumState.pinnedThreads;
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: LurkFrostedAppBar(
         title: Text(
           "${widget.forumName}吧",

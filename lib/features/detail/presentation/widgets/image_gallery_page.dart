@@ -410,7 +410,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
 
   void _animateDoubleTap(ExtendedImageGestureState state) {
     _cancelPendingGalleryTap();
-    HapticFeedbackUtil.selectionTick();
+    HapticFeedbackUtil.light();
     final pointerPosition = state.pointerDownPosition;
     final currentScale = state.gestureDetails?.totalScale ?? 1.0;
     final targetScale = currentScale <= 1.05
@@ -642,7 +642,14 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
       setState(() => _thumbnailScrollBottom ??= _thumbnailBottom);
     } else if (notification is ScrollEndNotification &&
         _thumbnailUserScrolling) {
-      _settleThumbnailScroll();
+      final epoch = _thumbnailSyncEpoch;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted &&
+            epoch == _thumbnailSyncEpoch &&
+            _thumbnailUserScrolling) {
+          _settleThumbnailScroll();
+        }
+      });
     }
     return false;
   }
@@ -750,6 +757,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
               child: ExtendedImageGesturePageView.builder(
                 controller: _pageController,
                 physics: const ClampingScrollPhysics(),
+                pageSnapping: !_thumbnailUserScrolling && !_thumbnailSettling,
                 itemCount: widget.images.length,
                 onPageChanged: (i) {
                   if (i != _currentIndex) {
