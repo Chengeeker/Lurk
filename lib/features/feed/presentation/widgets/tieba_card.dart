@@ -179,7 +179,8 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
     final contentSnippet = thread.mediaList.isEmpty
         ? thread.contentSnippet
         : thread.contentSnippet
-              .replaceAll(RegExp(r'(?:\r?\n[ \t]*){2,}'), '\n')
+              .replaceAll(RegExp(r'[\r\n\u0085\u2028\u2029]+'), ' ')
+              .replaceAll(RegExp(r'\s+'), ' ')
               .trim();
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;

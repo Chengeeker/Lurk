@@ -654,6 +654,25 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
     return false;
   }
 
+  bool _handleMainGalleryScroll(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    if (notification is ScrollStartNotification &&
+        notification.dragDetails != null) {
+      _thumbnailSyncEpoch++;
+      _thumbnailUserScrolling = false;
+      _thumbnailSettling = false;
+      if (_thumbnailController.hasClients &&
+          _thumbnailController.position.isScrollingNotifier.value) {
+        final position = _thumbnailController.position;
+        position.jumpTo(position.pixels);
+      }
+      if (_thumbnailScrollBottom != null) {
+        setState(() => _thumbnailScrollBottom = null);
+      }
+    }
+    return false;
+  }
+
   Widget _buildThumbnailStrip() {
     return SizedBox(
       height: 64,
@@ -744,19 +763,12 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            NotificationListener<ScrollStartNotification>(
-              onNotification: (notification) {
-                if (notification.depth == 0 &&
-                    notification.dragDetails != null) {
-                  _thumbnailSyncEpoch++;
-                  _thumbnailUserScrolling = false;
-                  _thumbnailSettling = false;
-                }
-                return false;
-              },
+            NotificationListener<ScrollNotification>(
+              onNotification: _handleMainGalleryScroll,
               child: ExtendedImageGesturePageView.builder(
                 controller: _pageController,
-                physics: const ClampingScrollPhysics(),
+                physics: const BouncingScrollPhysics(),
+                canScrollPage: (details) => (details?.totalScale ?? 1.0) <= 1.0,
                 pageSnapping: !_thumbnailUserScrolling && !_thumbnailSettling,
                 itemCount: widget.images.length,
                 onPageChanged: (i) {

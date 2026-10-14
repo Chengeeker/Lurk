@@ -548,9 +548,7 @@ class _ForumViewState extends ConsumerState<ForumView> {
     final tabs = forum?.tabs ?? [];
     final rule = forum?.rule;
     final pinnedThreads = forumState.pinnedThreads;
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: LurkFrostedAppBar(
+    final appBar = LurkFrostedAppBar(
         title: Text(
           "${widget.forumName}吧",
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
@@ -649,7 +647,12 @@ class _ForumViewState extends ConsumerState<ForumView> {
             },
           ),
         ],
-      ),
+      );
+    final topContentInset = MediaQuery.viewPaddingOf(context).top +
+        AppBar.preferredHeightFor(context, appBar.preferredSize);
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: appBar,
       body: EasyRefresh(
         controller: _refreshController,
         onRefresh: () async {
@@ -671,6 +674,9 @@ class _ForumViewState extends ConsumerState<ForumView> {
         child: CustomScrollView(
           controller: _scrollController,
           slivers: [
+            SliverToBoxAdapter(
+              child: SizedBox(height: topContentInset),
+            ),
             // 1. Unified Forum Header Card (Avatar + Info + Slogan + Tabs + Rule + Pinned + Sort)
             SliverToBoxAdapter(
               child: Padding(
