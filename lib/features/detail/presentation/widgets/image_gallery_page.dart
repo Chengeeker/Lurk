@@ -329,10 +329,13 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
   late int _currentIndex;
   late ExtendedPageController _pageController;
   late PageController _thumbnailController;
+  late final ValueNotifier<int> _activeMediaIndex;
   Animation<double>? _routeAnimation;
   bool _thumbnailUserScrolling = false;
   bool _thumbnailSettling = false;
+  bool _mainUserScrolling = false;
   int _thumbnailSyncEpoch = 0;
+  final Expando<ExtendedImageGesture> _pagingImages = Expando();
   bool _showChrome = true;
   bool _routeTransitionComplete = false;
   bool _videoFullscreen = false;
@@ -362,6 +365,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    _activeMediaIndex = ValueNotifier(_currentIndex);
     _currentVideoUrl = _mediaAt(widget.initialIndex).videoUrl;
     _pageController = ExtendedPageController(initialPage: widget.initialIndex);
     _thumbnailController = PageController(
@@ -400,6 +404,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
     _thumbnailController
       ..removeListener(_syncMainPageToThumbnail)
       ..dispose();
+    _activeMediaIndex.dispose();
     _pageController.dispose();
     if (_doubleTapListener != null) {
       _doubleTapAnimation?.removeListener(_doubleTapListener!);
@@ -442,17 +447,20 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
 
   Widget _withGalleryHero(int index, Widget child) {
     final scope = widget.heroScope;
-    if (scope == null || index != _currentIndex || _mediaAt(index).isVideo) {
+    if (scope == null || _mediaAt(index).isVideo) {
       return child;
     }
-    return Hero(
-      tag: ImageGalleryHeroTag(
-        scope: scope,
-        index: index,
-        mediaIdentity: widget.images[index],
+    return HeroMode(
+      enabled: index == _currentIndex,
+      child: Hero(
+        tag: ImageGalleryHeroTag(
+          scope: scope,
+          index: index,
+          mediaIdentity: widget.images[index],
+        ),
+        flightShuttleBuilder: imageGalleryHeroFlightShuttleBuilder,
+        child: child,
       ),
-      flightShuttleBuilder: imageGalleryHeroFlightShuttleBuilder,
-      child: child,
     );
   }
 
@@ -628,6 +636,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
           _thumbnailSettling = false;
           _thumbnailScrollBottom = null;
         });
+        _activeMediaIndex.value = _currentIndex;
       }),
     );
   }
@@ -639,6 +648,8 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
       _thumbnailSyncEpoch++;
       _thumbnailSettling = false;
       _thumbnailUserScrolling = true;
+      _mainUserScrolling = false;
+      _activeMediaIndex.value = -1;
       setState(() => _thumbnailScrollBottom ??= _thumbnailBottom);
     } else if (notification is ScrollEndNotification &&
         _thumbnailUserScrolling) {
@@ -661,6 +672,8 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
       _thumbnailSyncEpoch++;
       _thumbnailUserScrolling = false;
       _thumbnailSettling = false;
+      _mainUserScrolling = true;
+      _activeMediaIndex.value = -1;
       if (_thumbnailController.hasClients &&
           _thumbnailController.position.isScrollingNotifier.value) {
         final position = _thumbnailController.position;
@@ -669,6 +682,18 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
       if (_thumbnailScrollBottom != null) {
         setState(() => _thumbnailScrollBottom = null);
       }
+    } else if (notification is ScrollEndNotification && _mainUserScrolling) {
+      final epoch = _thumbnailSyncEpoch;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            epoch != _thumbnailSyncEpoch ||
+            !_mainUserScrolling ||
+            _pageController.position.isScrollingNotifier.value) {
+          return;
+        }
+        _mainUserScrolling = false;
+        _activeMediaIndex.value = _currentIndex;
+      });
     }
     return false;
   }
@@ -700,6 +725,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                   _thumbnailSettling = false;
                   _thumbnailController.jumpToPage(index);
                   _selectThumbnail(index);
+                  if (index == _currentIndex) _activeMediaIndex.value = index;
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -769,6 +795,8 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                 controller: _pageController,
                 physics: const BouncingScrollPhysics(),
                 canScrollPage: (details) => (details?.totalScale ?? 1.0) <= 1.0,
+                shouldAccpetHorizontalOrVerticalDrag: (trackers) =>
+                    trackers.length == 1,
                 pageSnapping: !_thumbnailUserScrolling && !_thumbnailSettling,
                 itemCount: widget.images.length,
                 onPageChanged: (i) {
@@ -791,6 +819,11 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                   });
                   if (!_thumbnailUserScrolling &&
                       !_thumbnailSettling &&
+                      !_mainUserScrolling) {
+                    _activeMediaIndex.value = i;
+                  }
+                  if (!_thumbnailUserScrolling &&
+                      !_thumbnailSettling &&
                       _thumbnailController.hasClients) {
                     _thumbnailController.jumpToPage(i);
                   }
@@ -798,55 +831,58 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                 itemBuilder: (context, index) {
                   final item = _mediaAt(index);
                   if (item.isVideo) {
-                    if (index == _currentIndex &&
-                        !_thumbnailUserScrolling &&
-                        !_thumbnailSettling) {
-                      return TiebaVideoPlayerPage(
-                        key: ValueKey('gallery-video-$index'),
-                        videoUrl: item.videoUrl,
-                        coverUrl: item.imageUrl,
-                        threadId: widget.threadId,
-                        authorName: widget.folderName,
-                        embedded: true,
-                        onFullscreenChanged: (isFullscreen) {
-                          if (index == _currentIndex) {
-                            _handleVideoFullscreenChanged(isFullscreen);
-                          }
-                        },
-                        onControlsVisibilityChanged: (visible) {
-                          if (index == _currentIndex) {
-                            _handleVideoControlsChanged(visible);
-                          }
-                        },
-                        onBottomControlsHeightChanged: (height) {
-                          if (index == _currentIndex) {
-                            _handleVideoBottomControlsHeightChanged(height);
-                          }
-                        },
-                        onVideoUrlChanged: (url) {
-                          if (index == _currentIndex) {
-                            _handleVideoUrlChanged(url);
-                          }
-                        },
-                      );
-                    }
-                    return Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        ExtendedImage.network(
-                          AppNetworkImage.safeUrl(item.imageUrl),
-                          fit: BoxFit.contain,
-                          cache: true,
-                          headers: {
-                            'User-Agent': TiebaConstants.defaultUserAgent,
-                          },
-                        ),
-                        const Icon(
-                          Icons.play_circle_fill_rounded,
-                          color: Colors.white,
-                          size: 64,
-                        ),
-                      ],
+                    return ValueListenableBuilder<int>(
+                      valueListenable: _activeMediaIndex,
+                      builder: (context, activeIndex, _) => activeIndex == index
+                          ? TiebaVideoPlayerPage(
+                              key: ValueKey('gallery-video-$index'),
+                              videoUrl: item.videoUrl,
+                              coverUrl: item.imageUrl,
+                              threadId: widget.threadId,
+                              authorName: widget.folderName,
+                              embedded: true,
+                              onFullscreenChanged: (isFullscreen) {
+                                if (index == _currentIndex) {
+                                  _handleVideoFullscreenChanged(isFullscreen);
+                                }
+                              },
+                              onControlsVisibilityChanged: (visible) {
+                                if (index == _currentIndex) {
+                                  _handleVideoControlsChanged(visible);
+                                }
+                              },
+                              onBottomControlsHeightChanged: (height) {
+                                if (index == _currentIndex) {
+                                  _handleVideoBottomControlsHeightChanged(
+                                    height,
+                                  );
+                                }
+                              },
+                              onVideoUrlChanged: (url) {
+                                if (index == _currentIndex) {
+                                  _handleVideoUrlChanged(url);
+                                }
+                              },
+                            )
+                          : Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                ExtendedImage.network(
+                                  AppNetworkImage.safeUrl(item.imageUrl),
+                                  fit: BoxFit.contain,
+                                  cache: true,
+                                  headers: {
+                                    'User-Agent':
+                                        TiebaConstants.defaultUserAgent,
+                                  },
+                                ),
+                                const Icon(
+                                  Icons.play_circle_fill_rounded,
+                                  color: Colors.white,
+                                  size: 64,
+                                ),
+                              ],
+                            ),
                     );
                   }
                   final url = AppNetworkImage.safeUrl(item.imageUrl);
@@ -931,7 +967,70 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                             ),
                           );
                         case LoadState.completed:
-                          return null;
+                          return _pagingImages[state
+                              .extendedImageInfo!] ??= ExtendedImageGesture(
+                            state,
+                            imageBuilder: (image, {imageGestureState}) {
+                              final gestureState = imageGestureState!;
+                              final pager = gestureState.context
+                                  .findAncestorStateOfType<
+                                    ExtendedImageGesturePageViewState
+                                  >();
+                              if (pager == null) return image;
+                              return Listener(
+                                onPointerDown: (_) {
+                                  pager.extendedImageGestureStates.remove(
+                                    gestureState,
+                                  );
+                                  pager.extendedImageGestureState =
+                                      gestureState;
+                                },
+                                child: RawGestureDetector(
+                                  gestures: {
+                                    ExtendedHorizontalDragGestureRecognizer:
+                                        GestureRecognizerFactoryWithHandlers<
+                                          ExtendedHorizontalDragGestureRecognizer
+                                        >(
+                                          () => ExtendedHorizontalDragGestureRecognizer(
+                                            canHorizontalOrVerticalDrag: () =>
+                                                (gestureState
+                                                        .gestureDetails
+                                                        ?.totalScale ??
+                                                    1) <=
+                                                1,
+                                            shouldAccpetHorizontalOrVerticalDrag:
+                                                (trackers) =>
+                                                    trackers.length == 1,
+                                          ),
+                                          (recognizer) => recognizer
+                                            ..onDown = pager.onDragDown
+                                            ..onStart = pager.onDragStart
+                                            ..onUpdate = pager.onDragUpdate
+                                            ..onEnd = pager.onDragEnd
+                                            ..onCancel = pager.onDragCancel
+                                            ..minFlingDistance = pager
+                                                .widget
+                                                .physics
+                                                .minFlingDistance
+                                            ..minFlingVelocity = pager
+                                                .widget
+                                                .physics
+                                                .minFlingVelocity
+                                            ..maxFlingVelocity = pager
+                                                .widget
+                                                .physics
+                                                .maxFlingVelocity
+                                            ..gestureSettings =
+                                                MediaQuery.gestureSettingsOf(
+                                                  context,
+                                                ),
+                                        ),
+                                  },
+                                  child: image,
+                                ),
+                              );
+                            },
+                          );
                       }
                     },
                   );
