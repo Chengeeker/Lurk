@@ -13,6 +13,7 @@ class TiebaTextParser {
     BuildContext context,
     String rawText, {
     TextStyle? baseStyle,
+    bool collapseWhitespace = false,
     Color? linkColor,
     void Function(String userName)? onUserTap,
     void Function(String topic)? onTopicTap,
@@ -22,7 +23,13 @@ class TiebaTextParser {
     final primary = linkColor ?? colorScheme.primary;
 
     final List<InlineSpan> spans = [];
-    final normalizedText = TiebaHtmlParser.toPlainText(rawText);
+    var normalizedText = TiebaHtmlParser.toPlainText(rawText);
+    if (collapseWhitespace) {
+      normalizedText = normalizedText
+          .replaceAll(RegExp(r'[\r\n\u0085\u2028\u2029]+'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+    }
     if (normalizedText.isEmpty) return spans;
 
     final regex = RegExp(

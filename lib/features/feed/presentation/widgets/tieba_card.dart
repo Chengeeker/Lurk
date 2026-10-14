@@ -176,12 +176,6 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
   @override
   Widget build(BuildContext context) {
     final thread = widget.thread;
-    final contentSnippet = thread.mediaList.isEmpty
-        ? thread.contentSnippet
-        : thread.contentSnippet
-              .replaceAll(RegExp(r'[\r\n\u0085\u2028\u2029]+'), ' ')
-              .replaceAll(RegExp(r'\s+'), ' ')
-              .trim();
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final habitState = ref.watch(habitSettingsProvider);
@@ -312,14 +306,16 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                 ),
 
               // 3. 贴子正文摘要
-              if (contentSnippet.isNotEmpty && contentSnippet != thread.title)
+              if (thread.contentSnippet.isNotEmpty &&
+                  thread.contentSnippet != thread.title)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: RichText(
                     text: TextSpan(
                       children: TiebaTextParser.parseRichText(
                         context,
-                        contentSnippet,
+                        thread.contentSnippet,
+                        collapseWhitespace: thread.mediaList.isNotEmpty,
                         baseStyle: TextStyle(
                           color: colorScheme.onSurfaceVariant,
                           fontSize: 13.5,
