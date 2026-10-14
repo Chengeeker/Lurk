@@ -804,8 +804,6 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                     _cancelPendingGalleryTap();
                     if (_thumbnailUserScrolling) {
                       HapticFeedbackUtil.selectionTick();
-                    } else if (!_thumbnailSettling) {
-                      HapticFeedbackUtil.selection();
                     }
                   }
                   setState(() {
