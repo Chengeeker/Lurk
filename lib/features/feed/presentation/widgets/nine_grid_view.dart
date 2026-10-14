@@ -145,6 +145,7 @@ class _NineGridViewState extends State<NineGridView> {
 
     return GridView.builder(
       shrinkWrap: true,
+      padding: EdgeInsets.zero,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: count > 9 ? 9 : count,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
