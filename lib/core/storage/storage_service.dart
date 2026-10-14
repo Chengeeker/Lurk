@@ -102,9 +102,9 @@ class StorageService {
   Future<bool> setFontWeightIndex(int val) => setInt(keyFontWeightIndex, val);
 
   int getFontSizePercent() =>
-      getInt(keyFontSizePercent, defaultValue: 100).clamp(80, 130).toInt();
+      getInt(keyFontSizePercent, defaultValue: 100).clamp(80, 140).toInt();
   Future<bool> setFontSizePercent(int val) =>
-      setInt(keyFontSizePercent, val.clamp(80, 130).toInt());
+      setInt(keyFontSizePercent, val.clamp(80, 140).toInt());
 
   static const String keyRefreshRateIndex = 'key_display_refresh_rate';
 

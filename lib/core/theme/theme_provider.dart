@@ -128,6 +128,10 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
     state = state.copyWith(fontWeightIndex: index);
   }
 
+  void previewFontSizePercent(int percent) {
+    state = state.copyWith(fontSizePercent: percent.clamp(80, 140).toInt());
+  }
+
   Future<void> setFontSizePercent(int percent) async {
     await _storage.setFontSizePercent(percent);
     state = state.copyWith(fontSizePercent: _storage.getFontSizePercent());

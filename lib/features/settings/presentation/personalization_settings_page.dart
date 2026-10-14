@@ -14,384 +14,221 @@ class PersonalizationSettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final colorScheme = theme.colorScheme;
     final themeState = ref.watch(themeProvider);
     final themeNotifier = ref.read(themeProvider.notifier);
+    final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            HapticFeedbackUtil.light();
-            Navigator.of(context).pop();
-          },
-        ),
-        title: const Text(
-          '个性化',
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
-        ),
-        centerTitle: false,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
-            child: Text(
-              '外观与视觉',
-              style: TextStyle(
-                color: colorScheme.onSurfaceVariant,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0,
-              ),
+    Widget section(String title, Widget content) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+          child: Text(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: colorScheme.primary,
             ),
           ),
-          AppSectionCard(
-            child: Column(
+        ),
+        AppSectionCard(child: content),
+      ],
+    );
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('个性化')),
+      body: ListView(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          MediaQuery.paddingOf(context).bottom + 24,
+        ),
+        children: [
+          section(
+            '明暗模式',
+            Column(
               children: [
-                ListTile(
-                  leading: Icon(
-                    Icons.dark_mode_outlined,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  title: const Text(
-                    '夜间模式',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    _getThemeModeLabel(themeState.themeMode),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
+                RadioGroup<ThemeMode>(
+                  groupValue: themeState.themeMode,
+                  onChanged: (value) {
+                    if (value == null) return;
                     HapticFeedbackUtil.light();
-                    showDialog(
-                      context: context,
-                      builder: (context) => SimpleDialog(
-                        title: const Text('选择夜间模式'),
-                        children: [
-                          _buildThemeModeOption(
-                            context,
-                            themeNotifier,
-                            ThemeMode.system,
-                            '跟随系统',
-                          ),
-                          _buildThemeModeOption(
-                            context,
-                            themeNotifier,
-                            ThemeMode.light,
-                            '始终浅色',
-                          ),
-                          _buildThemeModeOption(
-                            context,
-                            themeNotifier,
-                            ThemeMode.dark,
-                            '始终深色',
-                          ),
-                        ],
+                    themeNotifier.setThemeMode(value);
+                  },
+                  child: const Column(
+                    children: [
+                      RadioListTile<ThemeMode>(
+                        value: ThemeMode.system,
+                        title: Text('跟随系统'),
                       ),
-                    );
-                  },
-                ),
-                if (isDark) ...[
-                  Divider(
-                    height: 1,
-                    indent: 56,
-                    color: theme.dividerColor.withValues(alpha: 0.1),
-                  ),
-                  SwitchListTile(
-                    secondary: Icon(
-                      Icons.brightness_2_outlined,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                    title: const Text(
-                      '纯黑深色模式',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    value: themeState.isPureBlackDark,
-                    onChanged: (val) {
-                      HapticFeedbackUtil.light();
-                      themeNotifier.setPureBlackDark(val);
-                    },
-                  ),
-                ],
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
-                ),
-                SwitchListTile(
-                  secondary: Icon(
-                    Icons.color_lens_outlined,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  title: const Text(
-                    '动态色彩 (Material You)',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  value: themeState.useDynamicColor,
-                  onChanged: (val) {
-                    HapticFeedbackUtil.light();
-                    themeNotifier.setUseDynamicColor(val);
-                  },
-                ),
-                if (!themeState.useDynamicColor) ...[
-                  Divider(
-                    height: 1,
-                    indent: 56,
-                    color: theme.dividerColor.withValues(alpha: 0.1),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '预设主题色',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: List.generate(AppTheme.themeColors.length, (
-                            index,
-                          ) {
-                            final color =
-                                AppTheme.themeColors[index]['color'] as Color;
-                            final name =
-                                AppTheme.themeColors[index]['name'] as String;
-                            final isSelected =
-                                themeState.themeColorIndex == index;
-                            return Semantics(
-                              button: true,
-                              selected: isSelected,
-                              label: '主题色$name',
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  customBorder: const CircleBorder(),
-                                  onTap: () {
-                                    HapticFeedbackUtil.light();
-                                    themeNotifier.setThemeColorIndex(index);
-                                  },
-                                  child: SizedBox(
-                                    width: 48,
-                                    height: 48,
-                                    child: Center(
-                                      child: Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: color,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? colorScheme.onSurface
-                                                : Colors.transparent,
-                                            width: 2.5,
-                                          ),
-                                          boxShadow: isSelected
-                                              ? [
-                                                  BoxShadow(
-                                                    color: color.withValues(
-                                                      alpha: 0.4,
-                                                    ),
-                                                    blurRadius: 8,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ]
-                                              : null,
-                                        ),
-                                        child: isSelected
-                                            ? const Icon(
-                                                Icons.check,
-                                                color: Colors.white,
-                                                size: 20,
-                                              )
-                                            : null,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
-                ),
-                ListTile(
-                  leading: Icon(
-                    Icons.format_bold_rounded,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  title: const Text(
-                    '字体粗细调节',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    _getFontWeightLabel(themeState.fontWeightIndex),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    HapticFeedbackUtil.light();
-                    showDialog(
-                      context: context,
-                      builder: (context) => SimpleDialog(
-                        title: const Text('设置字体粗细'),
-                        children: [
-                          _buildFontWeightOption(
-                            context,
-                            themeNotifier,
-                            0,
-                            '偏细 (Light)',
-                          ),
-                          _buildFontWeightOption(
-                            context,
-                            themeNotifier,
-                            1,
-                            '默认 (Regular)',
-                          ),
-                          _buildFontWeightOption(
-                            context,
-                            themeNotifier,
-                            2,
-                            '中等 (Medium)',
-                          ),
-                          _buildFontWeightOption(
-                            context,
-                            themeNotifier,
-                            3,
-                            '偏粗 (SemiBold)',
-                          ),
-                          _buildFontWeightOption(
-                            context,
-                            themeNotifier,
-                            4,
-                            '加粗 (Bold)',
-                          ),
-                        ],
+                      Divider(height: 1),
+                      RadioListTile<ThemeMode>(
+                        value: ThemeMode.light,
+                        title: Text('浅色模式'),
                       ),
-                    );
-                  },
-                ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
-                ),
-                ListTile(
-                  leading: Icon(
-                    Icons.format_size_rounded,
-                    color: colorScheme.onSurfaceVariant,
+                      Divider(height: 1),
+                      RadioListTile<ThemeMode>(
+                        value: ThemeMode.dark,
+                        title: Text('深色模式'),
+                      ),
+                    ],
                   ),
-                  title: const Text(
-                    '字体大小调节',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    '${themeState.fontSizePercent}%',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    HapticFeedbackUtil.light();
-                    _showFontSizeDialog(
-                      context,
-                      themeNotifier,
-                      themeState.fontSizePercent,
-                    );
-                  },
                 ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
-                ),
-                ListTile(
-                  leading: Icon(
-                    Icons.speed_rounded,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  title: const Text(
-                    '屏幕帧率设置',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () {
-                    HapticFeedbackUtil.light();
-                    Navigator.of(context).push(
-                      SpringPageRoute(page: const DisplayModeSettingsPage()),
-                    );
-                  },
-                ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
-                ),
+                const Divider(height: 1),
                 SwitchListTile(
-                  secondary: Icon(
-                    Icons.view_carousel_outlined,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  title: const Text(
-                    '悬浮胶囊底栏',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  value: themeState.useFloatingNavBar,
-                  onChanged: (val) {
+                  secondary: const Icon(Icons.contrast_rounded, size: 24),
+                  title: const Text('纯黑深色模式 (OLED 省电)'),
+                  value: themeState.isPureBlackDark,
+                  onChanged: (value) {
                     HapticFeedbackUtil.light();
-                    themeNotifier.setUseFloatingNavBar(val);
-                  },
-                ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
-                ),
-                SwitchListTile(
-                  secondary: Icon(
-                    Icons.vibration_rounded,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  title: const Text(
-                    '震动反馈',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  value: themeState.enableHaptics,
-                  onChanged: (val) {
-                    HapticFeedbackUtil.light();
-                    themeNotifier.setEnableHaptics(val);
+                    themeNotifier.setPureBlackDark(value);
                   },
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          section(
+            '色彩方案',
+            Column(
+              children: [
+                SwitchListTile(
+                  secondary: const Icon(Icons.auto_awesome_outlined, size: 24),
+                  title: const Text('Material You (Monet) 动态取色'),
+                  value: themeState.useDynamicColor,
+                  onChanged: (value) {
+                    HapticFeedbackUtil.light();
+                    themeNotifier.setUseDynamicColor(value);
+                  },
+                ),
+                if (!themeState.useDynamicColor) ...[
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '预置主题配色搭配',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: List.generate(AppTheme.themeColors.length, (
+                        index,
+                      ) {
+                        final item = AppTheme.themeColors[index];
+                        final name = item['name'] as String;
+                        final color = item['color'] as Color;
+                        final isSelected = themeState.themeColorIndex == index;
+
+                        return ChoiceChip(
+                          avatar: CircleAvatar(
+                            backgroundColor: color,
+                            radius: 10,
+                          ),
+                          label: Text(name),
+                          selected: isSelected,
+                          onSelected: (_) {
+                            HapticFeedbackUtil.light();
+                            themeNotifier.setThemeColorIndex(index);
+                          },
+                        );
+                      }),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 32),
+          section(
+            '字体粗细',
+            ListTile(
+              leading: const Icon(Icons.format_bold_rounded, size: 24),
+              title: const Text('自定义应用字体粗细'),
+              subtitle: Text(
+                '当前：${_getFontWeightLabel(themeState.fontWeightIndex)}',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showFontWeightDialog(context, ref, themeState),
+            ),
+          ),
+          const SizedBox(height: 32),
+          section(
+            '字体大小',
+            ListTile(
+              leading: const Icon(Icons.format_size_rounded, size: 24),
+              title: const Text('应用字体大小'),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${themeState.fontSizePercent}%'),
+                  Slider(
+                    key: const ValueKey('app-text-scale-slider'),
+                    value: themeState.fontSizePercent / 100,
+                    min: 0.8,
+                    max: 1.4,
+                    divisions: 12,
+                    label: '${themeState.fontSizePercent}%',
+                    onChanged: (value) {
+                      themeNotifier.previewFontSizePercent(
+                        (value * 100).round(),
+                      );
+                    },
+                    onChangeEnd: (value) {
+                      themeNotifier.setFontSizePercent((value * 100).round());
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          section(
+            '导航布局风格',
+            SwitchListTile(
+              secondary: const Icon(Icons.dock_rounded, size: 24),
+              title: const Text('悬浮胶囊底栏 (MD3 Expressive)'),
+              value: themeState.useFloatingNavBar,
+              onChanged: (value) {
+                HapticFeedbackUtil.light();
+                themeNotifier.setUseFloatingNavBar(value);
+              },
+            ),
+          ),
+          const SizedBox(height: 32),
+          section(
+            '屏幕显示',
+            ListTile(
+              leading: const Icon(Icons.speed_rounded, size: 24),
+              title: const Text('屏幕帧率设置'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () {
+                HapticFeedbackUtil.light();
+                Navigator.of(
+                  context,
+                ).push(SpringPageRoute(page: const DisplayModeSettingsPage()));
+              },
+            ),
+          ),
+          const SizedBox(height: 32),
+          section(
+            '触感与震动',
+            SwitchListTile(
+              secondary: const Icon(Icons.vibration_rounded, size: 24),
+              title: const Text('触感与震动反馈'),
+              value: themeState.enableHaptics,
+              onChanged: (value) {
+                HapticFeedbackUtil.light();
+                themeNotifier.setEnableHaptics(value);
+              },
             ),
           ),
         ],
@@ -399,32 +236,56 @@ class PersonalizationSettingsPage extends ConsumerWidget {
     );
   }
 
-  String _getThemeModeLabel(ThemeMode mode) {
-    switch (mode) {
-      case ThemeMode.system:
-        return '跟随系统';
-      case ThemeMode.light:
-        return '始终浅色';
-      case ThemeMode.dark:
-        return '始终深色';
-    }
-  }
-
-  Widget _buildThemeModeOption(
+  void _showFontWeightDialog(
     BuildContext context,
-    ThemeNotifier notifier,
-    ThemeMode mode,
-    String label,
+    WidgetRef ref,
+    ThemeState themeState,
   ) {
-    return SimpleDialogOption(
-      onPressed: () {
-        HapticFeedbackUtil.light();
-        notifier.setThemeMode(mode);
-        Navigator.pop(context);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Text(label, style: const TextStyle(fontSize: 15)),
+    HapticFeedbackUtil.light();
+    final notifier = ref.read(themeProvider.notifier);
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('选择字体粗细'),
+        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        content: RadioGroup<int>(
+          groupValue: themeState.fontWeightIndex,
+          onChanged: (value) {
+            if (value == null) return;
+            HapticFeedbackUtil.light();
+            notifier.setFontWeightIndex(value);
+            Navigator.pop(dialogContext);
+          },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(5, (index) {
+              final isSelected = themeState.fontWeightIndex == index;
+              return RadioListTile<int>(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 2,
+                ),
+                title: Text(
+                  _getFontWeightLabel(index),
+                  style: TextStyle(
+                    fontWeight: AppTheme.getBaseFontWeight(index),
+                    color: isSelected
+                        ? Theme.of(dialogContext).colorScheme.primary
+                        : null,
+                  ),
+                ),
+                value: index,
+              );
+            }),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('取消'),
+          ),
+        ],
       ),
     );
   }
@@ -432,102 +293,17 @@ class PersonalizationSettingsPage extends ConsumerWidget {
   String _getFontWeightLabel(int index) {
     switch (index) {
       case 0:
-        return '偏细 (Light)';
+        return '偏细';
       case 1:
-        return '默认 (Regular)';
+        return '默认';
       case 2:
-        return '中等 (Medium)';
+        return '中等';
       case 3:
-        return '偏粗 (SemiBold)';
+        return '偏粗';
       case 4:
-        return '加粗 (Bold)';
+        return '加粗';
       default:
         return '默认';
     }
-  }
-
-  Widget _buildFontWeightOption(
-    BuildContext context,
-    ThemeNotifier notifier,
-    int index,
-    String label,
-  ) {
-    return SimpleDialogOption(
-      onPressed: () {
-        HapticFeedbackUtil.light();
-        notifier.setFontWeightIndex(index);
-        Navigator.pop(context);
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontWeight: AppTheme.getBaseFontWeight(index),
-            fontSize: 15,
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showFontSizeDialog(
-    BuildContext context,
-    ThemeNotifier notifier,
-    int currentPercent,
-  ) {
-    var percent = currentPercent.toDouble();
-    showDialog<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('调整字体大小'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Aa',
-                style: TextStyle(
-                  fontSize: 32 * percent / currentPercent,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('较小'),
-                  Text('${percent.round()}%'),
-                  const Text('较大'),
-                ],
-              ),
-              Slider(
-                min: 80,
-                max: 130,
-                divisions: 10,
-                value: percent,
-                label: '${percent.round()}%',
-                onChanged: (value) => setDialogState(() => percent = value),
-                onChangeEnd: (value) =>
-                    notifier.setFontSizePercent(value.round()),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () {
-                notifier.setFontSizePercent(percent.round());
-                Navigator.of(context).pop();
-              },
-              child: const Text('应用'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
