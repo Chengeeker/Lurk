@@ -15,6 +15,7 @@ class StorageService {
   static const String keyEnableHaptics = 'key_enable_haptics';
   static const String keyUseFloatingNavBar = 'key_use_floating_nav_bar';
   static const String keyFontWeightIndex = 'key_font_weight_index';
+  static const String keyFontSizePercent = 'key_font_size_percent';
   static const String keyShowFps = 'key_show_fps';
 
   static const String keyAccounts = 'key_accounts_list';
@@ -100,6 +101,11 @@ class StorageService {
   ); // 0: 偏细, 1: 默认, 2: 中等, 3: 偏粗, 4: 加粗
   Future<bool> setFontWeightIndex(int val) => setInt(keyFontWeightIndex, val);
 
+  int getFontSizePercent() =>
+      getInt(keyFontSizePercent, defaultValue: 100).clamp(80, 130).toInt();
+  Future<bool> setFontSizePercent(int val) =>
+      setInt(keyFontSizePercent, val.clamp(80, 130).toInt());
+
   static const String keyRefreshRateIndex = 'key_display_refresh_rate';
 
   int getRefreshRateIndex() => getInt(
@@ -141,6 +147,7 @@ class StorageService {
       'enable_haptics': getEnableHaptics(),
       'use_floating_nav_bar': getUseFloatingNavBar(),
       'font_weight_index': getFontWeightIndex(),
+      'font_size_percent': getFontSizePercent(),
       'refresh_rate_index': getRefreshRateIndex(),
       'my_forums_single_column': getMyForumsSingleColumn(),
       'bookmarks': getStringList(keyBookmarks),
@@ -172,6 +179,9 @@ class StorageService {
       }
       if (map['font_weight_index'] != null) {
         await setFontWeightIndex(map['font_weight_index']);
+      }
+      if (map['font_size_percent'] is num) {
+        await setFontSizePercent((map['font_size_percent'] as num).round());
       }
       if (map['refresh_rate_index'] != null) {
         await setRefreshRateIndex(map['refresh_rate_index']);

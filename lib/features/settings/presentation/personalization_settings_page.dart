@@ -241,7 +241,7 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                 ),
                 ListTile(
                   leading: Icon(
-                    Icons.format_size_rounded,
+                    Icons.format_bold_rounded,
                     color: colorScheme.onSurfaceVariant,
                   ),
                   title: const Text(
@@ -295,6 +295,37 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                           ),
                         ],
                       ),
+                    );
+                  },
+                ),
+                Divider(
+                  height: 1,
+                  indent: 56,
+                  color: theme.dividerColor.withValues(alpha: 0.1),
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.format_size_rounded,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  title: const Text(
+                    '字体大小调节',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    '${themeState.fontSizePercent}%',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    HapticFeedbackUtil.light();
+                    _showFontSizeDialog(
+                      context,
+                      themeNotifier,
+                      themeState.fontSizePercent,
                     );
                   },
                 ),
@@ -435,6 +466,66 @@ class PersonalizationSettingsPage extends ConsumerWidget {
             fontWeight: AppTheme.getBaseFontWeight(index),
             fontSize: 15,
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showFontSizeDialog(
+    BuildContext context,
+    ThemeNotifier notifier,
+    int currentPercent,
+  ) {
+    var percent = currentPercent.toDouble();
+    showDialog<void>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('调整字体大小'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Aa',
+                style: TextStyle(
+                  fontSize: 32 * percent / currentPercent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('较小'),
+                  Text('${percent.round()}%'),
+                  const Text('较大'),
+                ],
+              ),
+              Slider(
+                min: 80,
+                max: 130,
+                divisions: 10,
+                value: percent,
+                label: '${percent.round()}%',
+                onChanged: (value) => setDialogState(() => percent = value),
+                onChangeEnd: (value) =>
+                    notifier.setFontSizePercent(value.round()),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('取消'),
+            ),
+            FilledButton(
+              onPressed: () {
+                notifier.setFontSizePercent(percent.round());
+                Navigator.of(context).pop();
+              },
+              child: const Text('应用'),
+            ),
+          ],
         ),
       ),
     );

@@ -12,6 +12,7 @@ class ThemeState {
   final bool enableHaptics;
   final bool useFloatingNavBar;
   final int fontWeightIndex;
+  final int fontSizePercent;
   final int refreshRateIndex;
 
   const ThemeState({
@@ -22,6 +23,7 @@ class ThemeState {
     this.enableHaptics = true,
     this.useFloatingNavBar = true,
     this.fontWeightIndex = 1,
+    this.fontSizePercent = 100,
     this.refreshRateIndex = 0,
   });
 
@@ -33,6 +35,7 @@ class ThemeState {
     bool? enableHaptics,
     bool? useFloatingNavBar,
     int? fontWeightIndex,
+    int? fontSizePercent,
     int? refreshRateIndex,
   }) {
     return ThemeState(
@@ -43,6 +46,7 @@ class ThemeState {
       enableHaptics: enableHaptics ?? this.enableHaptics,
       useFloatingNavBar: useFloatingNavBar ?? this.useFloatingNavBar,
       fontWeightIndex: fontWeightIndex ?? this.fontWeightIndex,
+      fontSizePercent: fontSizePercent ?? this.fontSizePercent,
       refreshRateIndex: refreshRateIndex ?? this.refreshRateIndex,
     );
   }
@@ -63,6 +67,7 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
     final haptics = _storage.getEnableHaptics();
     final floatingNav = _storage.getUseFloatingNavBar();
     final fontWt = _storage.getFontWeightIndex();
+    final fontSize = _storage.getFontSizePercent();
     final refreshRate = _storage.getRefreshRateIndex();
 
     ThemeMode mode = ThemeMode.system;
@@ -79,6 +84,7 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
       enableHaptics: haptics,
       useFloatingNavBar: floatingNav,
       fontWeightIndex: fontWt,
+      fontSizePercent: fontSize,
       refreshRateIndex: refreshRate,
     );
   }
@@ -120,6 +126,11 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   Future<void> setFontWeightIndex(int index) async {
     await _storage.setFontWeightIndex(index);
     state = state.copyWith(fontWeightIndex: index);
+  }
+
+  Future<void> setFontSizePercent(int percent) async {
+    await _storage.setFontSizePercent(percent);
+    state = state.copyWith(fontSizePercent: _storage.getFontSizePercent());
   }
 
   Future<void> setRefreshRateIndex(int index) async {

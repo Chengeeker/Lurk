@@ -130,9 +130,46 @@ class _LurkAppState extends ConsumerState<LurkApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
+          builder: (context, child) {
+            final mediaQuery = MediaQuery.of(context);
+            return MediaQuery(
+              data: mediaQuery.copyWith(
+                textScaler: _PreferenceTextScaler(
+                  mediaQuery.textScaler,
+                  themeState.fontSizePercent / 100,
+                ),
+              ),
+              child: child!,
+            );
+          },
           home: const MainScaffold(),
         );
       },
     );
   }
+}
+
+class _PreferenceTextScaler extends TextScaler {
+  const _PreferenceTextScaler(this.systemScaler, this.preferenceScale);
+
+  final TextScaler systemScaler;
+  final double preferenceScale;
+
+  // Apply the preference after the system curve to preserve nonlinear accessibility scaling.
+  @override
+  double scale(double fontSize) =>
+      systemScaler.scale(fontSize) * preferenceScale;
+
+  @override
+  @Deprecated('Use scale instead.')
+  double get textScaleFactor => systemScaler.textScaleFactor * preferenceScale;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _PreferenceTextScaler &&
+      other.systemScaler == systemScaler &&
+      other.preferenceScale == preferenceScale;
+
+  @override
+  int get hashCode => Object.hash(systemScaler, preferenceScale);
 }
