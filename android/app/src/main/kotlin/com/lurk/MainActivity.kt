@@ -7,6 +7,8 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.provider.Settings
 import android.webkit.CookieManager
+import java.io.File
+import java.util.concurrent.Executors
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -15,6 +17,8 @@ class MainActivity : FlutterActivity() {
     private val COOKIE_CHANNEL = "com.lurk/cookie_manager"
     private val APP_CHANNEL = "com.lurk/app"
     private var appMethodChannel: MethodChannel? = null
+    private var cacheMethodChannel: MethodChannel? = null
+    private val cacheExecutor = Executors.newSingleThreadExecutor()
     private var initialUrl: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -201,5 +205,148 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+
+        cacheMethodChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.lurk/cache",
+        ).apply {
+            setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getCacheStats" -> cacheExecutor.execute {
+                        try {
+                            val stats = getCacheStatistics()
+                            runOnUiThread { result.success(stats) }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error("CACHE_STATS_FAILED", error.message, null)
+                            }
+                        }
+                    }
+                    "clearCache" -> cacheExecutor.execute {
+                        try {
+                            val cleared = clearAppCache()
+                            runOnUiThread {
+                                result.success(mapOf("cleared" to cleared))
+                            }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error("CACHE_CLEAR_FAILED", error.message, null)
+                            }
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        cacheMethodChannel?.setMethodCallHandler(null)
+        cacheMethodChannel = null
+        cacheExecutor.shutdown()
+        super.onDestroy()
+    }
+
+    private fun cacheRoots(): List<File> {
+        val roots = mutableListOf<File>()
+        cacheDir?.let { roots.add(it) }
+        codeCacheDir?.let { roots.add(it) }
+        externalCacheDirs?.filterNotNull()?.let { roots.addAll(it) }
+        return roots.distinctBy { it.absolutePath }
+    }
+
+    private fun forEachCacheFile(root: File, visit: (File) -> Unit) {
+        val rootPath = try {
+            root.canonicalPath
+        } catch (_: Exception) {
+            return
+        }
+        val rootPrefix = rootPath + File.separator
+        val stack = java.util.ArrayDeque<File>()
+        val visited = HashSet<String>()
+        stack.addLast(root)
+        while (stack.isNotEmpty()) {
+            val file = stack.removeLast()
+            val path = try {
+                file.canonicalPath
+            } catch (_: Exception) {
+                continue
+            }
+            if (file != root && !path.startsWith(rootPrefix)) continue
+            if (!visited.add(path)) continue
+            if (file.isDirectory) {
+                for (child in file.listFiles() ?: continue) stack.addLast(child)
+            } else if (file.isFile) {
+                visit(file)
+            }
+        }
+    }
+
+    private fun getCacheStatistics(): Map<String, Long> {
+        var total = 0L
+        var images = 0L
+        var network = 0L
+        var system = 0L
+        for (root in cacheRoots()) {
+            if (!root.exists()) continue
+            forEachCacheFile(root) { file ->
+                val length = file.length()
+                total += length
+                val path = file.absolutePath.lowercase()
+                if (path.contains("image") || path.endsWith(".png") ||
+                    path.endsWith(".jpg") || path.endsWith(".jpeg") ||
+                    path.endsWith(".webp") || path.endsWith(".gif")
+                ) {
+                    images += length
+                } else if (path.contains("http") || path.contains("webview") ||
+                    path.contains("dio") || path.endsWith(".tmp")
+                ) {
+                    network += length
+                } else {
+                    system += length
+                }
+            }
+        }
+        return mapOf(
+            "total" to total,
+            "images" to images,
+            "network" to network,
+            "system" to system,
+        )
+    }
+
+    private fun clearAppCache(): Long {
+        var clearedBytes = 0L
+        for (root in cacheRoots()) {
+            if (!root.isDirectory) continue
+            val rootPath = try {
+                root.canonicalPath
+            } catch (_: Exception) {
+                continue
+            }
+            for (entry in root.listFiles() ?: continue) {
+                clearedBytes += clearCacheEntry(rootPath, entry)
+            }
+        }
+        return clearedBytes
+    }
+
+    private fun clearCacheEntry(rootPath: String, entry: File): Long {
+        val path = try {
+            entry.canonicalPath
+        } catch (_: Exception) {
+            return 0L
+        }
+        if (!path.startsWith(rootPath + File.separator)) return 0L
+
+        var clearedBytes = 0L
+        if (entry.isDirectory) {
+            for (child in entry.listFiles() ?: emptyArray()) {
+                clearedBytes += clearCacheEntry(rootPath, child)
+            }
+        }
+        val entryBytes = if (entry.isFile) entry.length() else 0L
+        if (entry.delete()) clearedBytes += entryBytes
+        return clearedBytes
     }
 }

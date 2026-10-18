@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'package:flutter/gestures.dart' show kTouchSlop, VelocityTracker;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../feed/presentation/feed_controller.dart';
@@ -9,6 +12,32 @@ import '../../my_forums/presentation/my_forums_view.dart';
 import '../../notification/presentation/notification_view.dart';
 import '../../profile/presentation/profile_view.dart';
 import '../../settings/presentation/providers/habit_settings_provider.dart';
+
+const _mainNavigationDestinations = <_MainNavigationDestination>[
+  _MainNavigationDestination(
+    icon: Icons.forum_outlined,
+    selectedIcon: Icons.forum_rounded,
+    label: '进吧',
+  ),
+  _MainNavigationDestination(
+    icon: Icons.dynamic_feed_outlined,
+    selectedIcon: Icons.dynamic_feed_rounded,
+    label: '动态',
+  ),
+  _MainNavigationDestination(
+    icon: Icons.notifications_outlined,
+    selectedIcon: Icons.notifications_rounded,
+    label: '消息',
+  ),
+  _MainNavigationDestination(
+    icon: Icons.person_outline_rounded,
+    selectedIcon: Icons.person_rounded,
+    label: '我的',
+  ),
+];
+
+double _floatingNavigationBarWidth(BuildContext context) =>
+    math.min(440.0, MediaQuery.sizeOf(context).width - 40.0).toDouble() * 8 / 9;
 
 final mainScaffoldKeyProvider = Provider<GlobalKey<ScaffoldState>>((ref) {
   return GlobalKey<ScaffoldState>();
@@ -180,6 +209,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold>
     final colorScheme = theme.colorScheme;
     final themeState = ref.watch(themeProvider);
     final useFloating = themeState.useFloatingNavBar;
+    final useLiquidGlassNavigation = useFloating && themeState.useLiquidGlass;
     final scaffoldKey = ref.watch(mainScaffoldKeyProvider);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
@@ -193,34 +223,19 @@ class _MainScaffoldState extends ConsumerState<MainScaffold>
       indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       onDestinationSelected: _onNavigationItemSelected,
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.forum_outlined),
-          selectedIcon: Icon(Icons.forum_rounded),
-          label: '进吧',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.dynamic_feed_outlined),
-          selectedIcon: Icon(Icons.dynamic_feed_rounded),
-          label: '动态',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.notifications_outlined),
-          selectedIcon: Icon(Icons.notifications_rounded),
-          label: '消息',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline_rounded),
-          selectedIcon: Icon(Icons.person_rounded),
-          label: '我的',
-        ),
+      destinations: [
+        for (final destination in _mainNavigationDestinations)
+          NavigationDestination(
+            icon: Icon(destination.icon),
+            selectedIcon: Icon(destination.selectedIcon),
+            label: destination.label,
+          ),
       ],
     );
 
     final floatingCapsuleBar = Container(
-      width: 320,
-      height: 64,
-      padding: const EdgeInsets.all(4),
+      width: _floatingNavigationBarWidth(context),
+      height: 56,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF222328) : colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(32),
@@ -232,50 +247,59 @@ class _MainScaffoldState extends ConsumerState<MainScaffold>
           ),
         ],
       ),
-      child: Row(
+      child: Stack(
         children: [
-          _buildCapsuleItem(
-            index: 0,
-            icon: Icons.forum_outlined,
-            selectedIcon: Icons.forum_rounded,
-            label: '进吧',
-            isDark: isDark,
-            colorScheme: colorScheme,
+          Positioned.fill(
+            child: AnimatedAlign(
+              alignment: Alignment(
+                -1 +
+                    2 * _currentIndex /
+                        (_mainNavigationDestinations.length - 1),
+                0,
+              ),
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeInOutCubic,
+              child: FractionallySizedBox(
+                widthFactor: 1 / _mainNavigationDestinations.length,
+                heightFactor: 1,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? colorScheme.secondaryContainer
+                        : colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                ),
+              ),
+            ),
           ),
-          _buildCapsuleItem(
-            index: 1,
-            icon: Icons.dynamic_feed_outlined,
-            selectedIcon: Icons.dynamic_feed_rounded,
-            label: '动态',
-            isDark: isDark,
-            colorScheme: colorScheme,
-          ),
-          _buildCapsuleItem(
-            index: 2,
-            icon: Icons.notifications_outlined,
-            selectedIcon: Icons.notifications_rounded,
-            label: '消息',
-            isDark: isDark,
-            colorScheme: colorScheme,
-          ),
-          _buildCapsuleItem(
-            index: 3,
-            icon: Icons.person_outline_rounded,
-            selectedIcon: Icons.person_rounded,
-            label: '我的',
-            isDark: isDark,
-            colorScheme: colorScheme,
+          Row(
+            children: [
+              for (var index = 0;
+                  index < _mainNavigationDestinations.length;
+                  index++)
+                _buildCapsuleItem(
+                  index: index,
+                  destination: _mainNavigationDestinations[index],
+                  isDark: isDark,
+                  colorScheme: colorScheme,
+                ),
+            ],
           ),
         ],
       ),
     );
 
-    return Scaffold(
+    final scaffold = Scaffold(
       key: scaffoldKey,
+      extendBody: useLiquidGlassNavigation,
       body: Stack(
         children: [
-          _buildTabContent(),
-          if (useFloating)
+          GlassBackgroundSource(
+            enabled: useLiquidGlassNavigation,
+            child: _buildTabContent(),
+          ),
+          if (useFloating && !useLiquidGlassNavigation)
             Positioned(
               left: 0,
               right: 0,
@@ -284,20 +308,29 @@ class _MainScaffoldState extends ConsumerState<MainScaffold>
             ),
         ],
       ),
-      bottomNavigationBar: useFloating ? null : standardNavBar,
+      bottomNavigationBar: !useFloating
+          ? standardNavBar
+          : useLiquidGlassNavigation
+          ? _LiquidGlassNavigationBar(
+              selectedIndex: _currentIndex,
+              onSelected: _onNavigationItemSelected,
+            )
+          : null,
+    );
+
+    if (!useLiquidGlassNavigation) return scaffold;
+    return GlassAdaptiveScope(
+      child: GlassPage(enableBackgroundSampling: true, child: scaffold),
     );
   }
 
   Widget _buildCapsuleItem({
     required int index,
-    required IconData icon,
-    required IconData selectedIcon,
-    required String label,
+    required _MainNavigationDestination destination,
     required bool isDark,
     required ColorScheme colorScheme,
   }) {
     final isSelected = _currentIndex == index;
-    final activeBgColor = isDark ? colorScheme.secondaryContainer : colorScheme.primaryContainer;
     final activeTextColor = isDark ? colorScheme.onSecondaryContainer : colorScheme.onPrimaryContainer;
 
     return Expanded(
@@ -306,23 +339,17 @@ class _MainScaffoldState extends ConsumerState<MainScaffold>
         onTap: () => _onNavigationItemSelected(index),
         child: Container(
           height: 56,
-          decoration: isSelected
-              ? BoxDecoration(
-                  color: activeBgColor,
-                  borderRadius: BorderRadius.circular(28),
-                )
-              : null,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                isSelected ? selectedIcon : icon,
+                isSelected ? destination.selectedIcon : destination.icon,
                 size: 22,
                 color: isSelected ? activeTextColor : colorScheme.onSurfaceVariant,
               ),
               const SizedBox(height: 2),
               Text(
-                label,
+                destination.label,
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -335,4 +362,188 @@ class _MainScaffoldState extends ConsumerState<MainScaffold>
       ),
     );
   }
+}
+
+class _MainNavigationDestination {
+  const _MainNavigationDestination({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+}
+
+class _LiquidGlassNavigationBar extends StatefulWidget {
+  const _LiquidGlassNavigationBar({
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  State<_LiquidGlassNavigationBar> createState() =>
+      _LiquidGlassNavigationBarState();
+}
+
+class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar> {
+  static const _longPressThreshold = Duration(milliseconds: 500);
+  static const _flickVelocityThreshold = 1000.0;
+
+  int? _activePointer;
+  VelocityTracker? _velocityTracker;
+  Duration? _pointerDownAt;
+  Offset? _pointerDownPosition;
+  int _selectedIndexAtPointerDown = 0;
+  int? _pendingIndex;
+  bool _movedBeyondSlop = false;
+  bool _draggedHorizontally = false;
+  bool _cancelled = false;
+  int _gestureId = 0;
+
+  void _onPointerDown(PointerDownEvent event) {
+    if (_activePointer != null) return;
+    _activePointer = event.pointer;
+    _velocityTracker = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, event.position);
+    _pointerDownAt = event.timeStamp;
+    _pointerDownPosition = event.position;
+    _selectedIndexAtPointerDown = widget.selectedIndex;
+    _pendingIndex = null;
+    _movedBeyondSlop = false;
+    _draggedHorizontally = false;
+    _cancelled = false;
+    _gestureId++;
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (event.pointer != _activePointer) return;
+    _velocityTracker?.addPosition(event.timeStamp, event.position);
+    final delta = event.position - _pointerDownPosition!;
+    if (delta.distance > kTouchSlop) {
+      _movedBeyondSlop = true;
+      if (delta.dx.abs() > delta.dy.abs()) _draggedHorizontally = true;
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) => _finishPointer(
+    event.pointer,
+    event.timeStamp,
+    horizontalVelocity: _velocityTracker?.getVelocity().pixelsPerSecond.dx ?? 0,
+  );
+
+  void _onPointerCancel(PointerCancelEvent event) =>
+      _finishPointer(event.pointer, event.timeStamp, cancelled: true);
+
+  void _finishPointer(
+    int pointer,
+    Duration releasedAt, {
+    bool cancelled = false,
+    double horizontalVelocity = 0,
+  }) {
+    if (pointer != _activePointer) return;
+    _cancelled |= cancelled;
+    final gestureId = _gestureId;
+    scheduleMicrotask(() {
+      if (!mounted || gestureId != _gestureId) return;
+
+      final target = _pendingIndex;
+      final wasLongPress = releasedAt - _pointerDownAt! >= _longPressThreshold;
+      final wasDrag = _draggedHorizontally;
+      final movedVertically = _movedBeyondSlop && !wasDrag;
+      final wasCancelled = _cancelled;
+      final startingIndex = _selectedIndexAtPointerDown;
+
+      _activePointer = null;
+      _velocityTracker = null;
+      _pointerDownAt = null;
+      _pointerDownPosition = null;
+      _pendingIndex = null;
+      _movedBeyondSlop = false;
+      _draggedHorizontally = false;
+      _cancelled = false;
+
+      if (wasCancelled || movedVertically || target == null) return;
+      final isFastFlick =
+          wasDrag && horizontalVelocity.abs() >= _flickVelocityThreshold;
+      final selectedTarget = isFastFlick
+          ? target.clamp(startingIndex - 1, startingIndex + 1).toInt()
+          : target;
+      if ((wasDrag || wasLongPress) && selectedTarget == startingIndex) return;
+      widget.onSelected(selectedTarget);
+    });
+  }
+
+  void _onTabSelected(int index) {
+    if (_activePointer != null) {
+      _pendingIndex = index;
+    } else {
+      widget.onSelected(index);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    minimum: const EdgeInsets.only(bottom: 21),
+    child: Align(
+      alignment: Alignment.bottomCenter,
+      child: SizedBox(
+        width: _floatingNavigationBarWidth(context),
+        height: 56,
+        child: Listener(
+          onPointerDown: _onPointerDown,
+          onPointerMove: _onPointerMove,
+          onPointerUp: _onPointerUp,
+          onPointerCancel: _onPointerCancel,
+          child: GlassTabBar.bottom(
+            tabs: [
+              for (final destination in _mainNavigationDestinations)
+                GlassTab(
+                  icon: Icon(destination.icon),
+                  activeIcon: Icon(destination.selectedIcon),
+                  label: destination.label,
+                ),
+            ],
+            selectedIndex: widget.selectedIndex,
+            onTabSelected: _onTabSelected,
+            barHeight: 56,
+            horizontalPadding: 0,
+            verticalPadding: 0,
+            barBorderRadius: 9999,
+            indicatorBorderRadius: 9999,
+            settings: const LiquidGlassSettings(
+              glassColor: Color(0x66000000),
+              bodyMode: GlassBodyMode.clear,
+              thickness: 10,
+              blur: 2.0,
+              lightIntensity: 0.25,
+              ambientStrength: 0,
+              refractiveIndex: 1.19,
+              chromaticAberration: 0.008,
+              shadowElevation: 0,
+            ),
+            indicatorSettings: const LiquidGlassSettings(
+              refractiveIndex: 1.18,
+              chromaticAberration: 0.025,
+            ),
+            quality: GlassQuality.premium,
+            backgroundQuality: GlassQuality.premium,
+            indicatorColor: const Color(0x66000000),
+            interactionGlowColor: const Color(0x20FFFFFF),
+            indicatorPinchStrength: 0.7,
+            innerBlur: 6,
+            pressScale: 1.06,
+            selectedIconColor: Colors.white,
+            selectedLabelColor: Colors.white,
+            unselectedIconColor: Colors.white,
+            unselectedLabelColor: Colors.white,
+          ),
+        ),
+      ),
+    ),
+  );
 }

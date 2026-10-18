@@ -14,6 +14,7 @@ import '../../../core/widgets/app_section_card.dart';
 import '../../auth/presentation/login_page.dart';
 import '../../profile/data/profile_repository.dart';
 import 'block_settings_page.dart';
+import 'cache_management_page.dart';
 import 'habit_settings_page.dart';
 import 'personalization_settings_page.dart';
 import 'providers/habit_settings_provider.dart';
@@ -580,6 +581,25 @@ class SettingsView extends ConsumerWidget {
                     Navigator.of(
                       context,
                     ).push(SpringPageRoute(page: const StorageSettingsPage()));
+                  },
+                ),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: dividerColor,
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.cleaning_services_outlined,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  title: Text('缓存管理', style: settingTitleStyle),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () {
+                    HapticFeedbackUtil.light();
+                    Navigator.of(context).push(
+                      SpringPageRoute(page: const CacheManagementPage()),
+                    );
                   },
                 ),
                 Divider(

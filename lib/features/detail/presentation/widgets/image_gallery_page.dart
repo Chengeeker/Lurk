@@ -6,9 +6,12 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderClipRRect, RenderImage;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../../../core/services/media_save_service.dart';
 import '../../../../core/services/share_service.dart';
+import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/utils/haptic_feedback_util.dart';
 import '../../../../core/constants/tieba_constants.dart';
 import '../../../../core/widgets/app_network_image.dart';
@@ -259,7 +262,7 @@ class ImageGalleryHeroThumbnail extends StatelessWidget {
   );
 }
 
-class ImageGalleryPage extends StatefulWidget {
+class ImageGalleryPage extends ConsumerStatefulWidget {
   final List<String> images;
   final List<GalleryMediaItem>? mediaItems;
   final int initialIndex;
@@ -318,10 +321,10 @@ class ImageGalleryPage extends StatefulWidget {
   }
 
   @override
-  State<ImageGalleryPage> createState() => _ImageGalleryPageState();
+  ConsumerState<ImageGalleryPage> createState() => _ImageGalleryPageState();
 }
 
-class _ImageGalleryPageState extends State<ImageGalleryPage>
+class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _doubleTapController;
   Animation<double>? _doubleTapAnimation;
@@ -779,7 +782,10 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
 
   @override
   Widget build(BuildContext context) {
-    return ExtendedImageSlidePage(
+    final useLiquidGlass = ref.watch(
+      themeProvider.select((state) => state.useLiquidGlass),
+    );
+    final galleryPage = ExtendedImageSlidePage(
       slideAxis: SlideAxis.horizontal,
       slideType: SlideType.onlyImage,
       slidePageBackgroundHandler: (offset, pageSize) => Colors.black.withValues(
@@ -789,9 +795,11 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            NotificationListener<ScrollNotification>(
-              onNotification: _handleMainGalleryScroll,
-              child: ExtendedImageGesturePageView.builder(
+            GlassBackgroundSource(
+              enabled: useLiquidGlass,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _handleMainGalleryScroll,
+                child: ExtendedImageGesturePageView.builder(
                 controller: _pageController,
                 physics: const BouncingScrollPhysics(),
                 canScrollPage: (details) => (details?.totalScale ?? 1.0) <= 1.0,
@@ -1044,6 +1052,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                     ),
                   );
                 },
+                ),
               ),
             ),
             if (widget.images.length > 1)
@@ -1087,6 +1096,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                               size: 22,
                             ),
                             onPressed: () => Navigator.pop(context),
+                            useLiquidGlass: useLiquidGlass,
                           ),
                         ),
                       ),
@@ -1152,6 +1162,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                                     fallbackMessage: '视频链接已复制到剪贴板',
                                   );
                                 },
+                                useLiquidGlass: useLiquidGlass,
                               )
                             else
                               const SizedBox(width: 48),
@@ -1182,6 +1193,7 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
                                     );
                                   }
                                 },
+                                useLiquidGlass: useLiquidGlass,
                               )
                             else
                               const SizedBox(width: 48),
@@ -1196,6 +1208,11 @@ class _ImageGalleryPageState extends State<ImageGalleryPage>
         ),
       ),
     );
+    if (!useLiquidGlass) return galleryPage;
+    return GlassAdaptiveScope(
+      minQuality: GlassQuality.standard,
+      child: GlassPage(enableBackgroundSampling: true, child: galleryPage),
+    );
   }
 }
 
@@ -1204,11 +1221,13 @@ class _GalleryGlassIconButton extends StatefulWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    required this.useLiquidGlass,
   });
 
   final Widget icon;
   final String tooltip;
   final VoidCallback onPressed;
+  final bool useLiquidGlass;
 
   @override
   State<_GalleryGlassIconButton> createState() =>
@@ -1222,7 +1241,21 @@ class _GalleryGlassIconButtonState extends State<_GalleryGlassIconButton> {
   @override
   void initState() {
     super.initState();
-    if (ui.ImageFilter.isShaderFilterSupported) _loadShader();
+    if (!widget.useLiquidGlass && ui.ImageFilter.isShaderFilterSupported) {
+      _loadShader();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _GalleryGlassIconButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.useLiquidGlass == widget.useLiquidGlass) return;
+    if (widget.useLiquidGlass) {
+      _shader?.dispose();
+      _shader = null;
+    } else if (ui.ImageFilter.isShaderFilterSupported) {
+      _loadShader();
+    }
   }
 
   Future<void> _loadShader() async {
@@ -1230,7 +1263,12 @@ class _GalleryGlassIconButtonState extends State<_GalleryGlassIconButton> {
       final program = await (_programFuture ??= ui.FragmentProgram.fromAsset(
         'shaders/gallery_glass_button.frag',
       ));
-      if (mounted) setState(() => _shader = program.fragmentShader());
+      final shader = program.fragmentShader();
+      if (!mounted || widget.useLiquidGlass) {
+        shader.dispose();
+        return;
+      }
+      setState(() => _shader = shader);
     } catch (_) {
       // Blur and the highlight remain usable when shader loading is unavailable.
     }
@@ -1244,6 +1282,44 @@ class _GalleryGlassIconButtonState extends State<_GalleryGlassIconButton> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.useLiquidGlass) {
+      return GestureDetector(
+        excludeFromSemantics: true,
+        onLongPress: () {},
+        child: GlassButton(
+          label: widget.tooltip,
+          width: 48,
+          height: 48,
+          icon: widget.icon,
+          iconSize: 22,
+          iconColor: Colors.white,
+          onTap: widget.onPressed,
+          enabled: true,
+          useOwnLayer: true,
+          stretch: 0.8,
+          anchorStretchSettings: const AnchorStretchSettings(
+            intensity: 0.8,
+            squashFactor: 0.3,
+            translationDamping: 0.15,
+            bounciness: 0.2,
+          ),
+          glowColor: const Color(0x20FFFFFF),
+          glowOpacity: 1,
+          quality: GlassQuality.premium,
+          settings: const LiquidGlassSettings(
+            glassColor: Color(0x66000000),
+            bodyMode: GlassBodyMode.clear,
+            thickness: 32,
+            blur: 2,
+            lightIntensity: 0.25,
+            ambientStrength: 0,
+            refractiveIndex: 1.24,
+            chromaticAberration: 0.025,
+            shadowElevation: 0,
+          ),
+        ),
+      );
+    }
     final blur = ui.ImageFilter.blur(sigmaX: 2.5, sigmaY: 2.5);
     final shader = _shader;
     final filter = shader == null

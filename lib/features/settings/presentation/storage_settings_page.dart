@@ -1,15 +1,13 @@
 // ignore_for_file: deprecated_member_use
-import "package:extended_image/extended_image.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "../../../core/auth/auth_provider.dart";
 import "../../../core/storage/storage_service.dart";
-import "../../../core/utils/app_toast.dart";
 import "../../../core/utils/haptic_feedback_util.dart";
 import "../../../core/widgets/app_section_card.dart";
 
-/// 存储设置页面 (管理图片与视频存储路径、缓存自动与手动清理)
+/// 存储设置页面 (管理图片与视频保存路径)
 class StorageSettingsPage extends ConsumerStatefulWidget {
   const StorageSettingsPage({super.key});
 
@@ -217,7 +215,6 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
 
     final imagePathType = storageService.getImageSavePathType();
     final videoPathType = storageService.getVideoSavePathType();
-    final autoClearCache = storageService.getAutoClearCacheOnExit();
 
     return Scaffold(
       appBar: AppBar(title: const Text("存储设置")),
@@ -275,52 +272,6 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
             ),
           ),
           const SizedBox(height: 14),
-
-          // 2. 缓存管理卡片
-          AppSectionCard(
-            child: Column(
-              children: [
-                SwitchListTile(
-                  secondary: Icon(
-                    Icons.auto_delete_outlined,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  title: const Text(
-                    "退出时自动清理缓存",
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  value: autoClearCache,
-                  onChanged: (val) async {
-                    HapticFeedbackUtil.light();
-                    await storageService.setAutoClearCacheOnExit(val);
-                    setState(() {});
-                  },
-                ),
-                const Divider(height: 1, indent: 56),
-                ListTile(
-                  leading: Icon(
-                    Icons.cleaning_services_outlined,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                  title: const Text(
-                    "立即清理缓存",
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () async {
-                    HapticFeedbackUtil.medium();
-                    PaintingBinding.instance.imageCache.clear();
-                    PaintingBinding.instance.imageCache.clearLiveImages();
-                    await clearDiskCachedImages();
-                    clearMemoryImageCache();
-                    if (context.mounted) {
-                      AppToast.show(context, "已成功清理全部临时缓存文件");
-                    }
-                  },
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );

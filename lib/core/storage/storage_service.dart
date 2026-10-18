@@ -14,6 +14,7 @@ class StorageService {
   static const String keyIsPureBlackDark = 'key_is_pure_black_dark';
   static const String keyEnableHaptics = 'key_enable_haptics';
   static const String keyUseFloatingNavBar = 'key_use_floating_nav_bar';
+  static const String keyUseLiquidGlass = 'key_use_liquid_glass_effect';
   static const String keyFontWeightIndex = 'key_font_weight_index';
   static const String keyFontSizePercent = 'key_font_size_percent';
   static const String keyShowFps = 'key_show_fps';
@@ -95,6 +96,9 @@ class StorageService {
   Future<bool> setUseFloatingNavBar(bool val) =>
       setBool(keyUseFloatingNavBar, val);
 
+  bool getUseLiquidGlass() => getBool(keyUseLiquidGlass, defaultValue: false);
+  Future<bool> setUseLiquidGlass(bool val) => setBool(keyUseLiquidGlass, val);
+
   int getFontWeightIndex() => getInt(
     keyFontWeightIndex,
     defaultValue: 1,
@@ -117,6 +121,8 @@ class StorageService {
   static const String keyImageSavePathType = 'key_image_save_path_type';
   static const String keyVideoSavePathType = 'key_video_save_path_type';
   static const String keyAutoClearCacheOnExit = 'key_auto_clear_cache_on_exit';
+  static const String keyAutoClearCacheThresholdMb =
+      'key_auto_clear_cache_threshold_mb';
 
   int getImageSavePathType() => getInt(keyImageSavePathType, defaultValue: 0);
   Future<bool> setImageSavePathType(int val) =>
@@ -130,6 +136,11 @@ class StorageService {
       getBool(keyAutoClearCacheOnExit, defaultValue: false);
   Future<bool> setAutoClearCacheOnExit(bool val) =>
       setBool(keyAutoClearCacheOnExit, val);
+
+  int getAutoClearCacheThresholdMb() =>
+      getInt(keyAutoClearCacheThresholdMb, defaultValue: 200);
+  Future<bool> setAutoClearCacheThresholdMb(int val) =>
+      setInt(keyAutoClearCacheThresholdMb, val < 0 ? 0 : val);
 
   bool getMyForumsSingleColumn() =>
       getBool(keyMyForumsSingleColumn, defaultValue: false);
@@ -146,6 +157,8 @@ class StorageService {
       'is_pure_black_dark': getBool(keyIsPureBlackDark),
       'enable_haptics': getEnableHaptics(),
       'use_floating_nav_bar': getUseFloatingNavBar(),
+      'use_liquid_glass_effect': getUseLiquidGlass(),
+      'auto_clear_cache_threshold_mb': getAutoClearCacheThresholdMb(),
       'font_weight_index': getFontWeightIndex(),
       'font_size_percent': getFontSizePercent(),
       'refresh_rate_index': getRefreshRateIndex(),
@@ -176,6 +189,13 @@ class StorageService {
       }
       if (map['use_floating_nav_bar'] != null) {
         await setUseFloatingNavBar(map['use_floating_nav_bar']);
+      }
+      if (map['use_liquid_glass_effect'] != null) {
+        await setUseLiquidGlass(map['use_liquid_glass_effect']);
+      }
+      final cacheThreshold = map['auto_clear_cache_threshold_mb'];
+      if (cacheThreshold is int && cacheThreshold >= 0) {
+        await setAutoClearCacheThresholdMb(cacheThreshold);
       }
       if (map['font_weight_index'] != null) {
         await setFontWeightIndex(map['font_weight_index']);

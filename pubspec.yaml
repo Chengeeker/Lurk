@@ -4,7 +4,7 @@ description: "An Android client for Baidu Tieba."
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none'
 
-version: 2.3.3+45
+version: 2.5.0+47
 
 environment:
   sdk: ^3.13.1
@@ -32,6 +32,7 @@ dependencies:
   video_player: ^2.9.2
   protobuf: ^6.0.0
   fixnum: ^1.1.1
+  liquid_glass_widgets: ^1.13.0
 
 dev_dependencies:
   flutter_test:

@@ -6,9 +6,11 @@ import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/services/display_mode_service.dart';
+import 'core/services/cache_service.dart';
 import 'core/services/link_routing_service.dart';
 import 'core/storage/storage_service.dart';
 import 'core/theme/app_theme.dart';
@@ -18,6 +20,7 @@ import 'features/home/presentation/main_scaffold.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LiquidGlassWidgets.initialize(enablePerformanceMonitor: false);
   final prefs = await SharedPreferences.getInstance();
   final storage = StorageService(prefs);
   await DisplayModeService.init(storage);
@@ -47,9 +50,12 @@ void main() async {
   );
 
   runApp(
-    ProviderScope(
-      overrides: [storageServiceProvider.overrideWithValue(storage)],
-      child: const LurkApp(),
+    LiquidGlassWidgets.wrap(
+      child: ProviderScope(
+        overrides: [storageServiceProvider.overrideWithValue(storage)],
+        child: const LurkApp(),
+      ),
+      brightnessResolver: Theme.maybeBrightnessOf,
     ),
   );
 }
@@ -70,6 +76,11 @@ class _LurkAppState extends ConsumerState<LurkApp> {
   void initState() {
     super.initState();
     LinkRoutingService.initDeepLinkListener(rootNavigatorKey);
+    unawaited(
+      CacheService.checkAndAutoClearCache(
+        ref.read(storageServiceProvider).getAutoClearCacheThresholdMb(),
+      ),
+    );
     _lifecycleListener = AppLifecycleListener(
       onDetach: _handleAppExit,
       onHide: _handleAppExit,
