@@ -1,12 +1,13 @@
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
-import "package:shared_preferences/shared_preferences.dart";
+import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:url_launcher/url_launcher.dart";
 
 import "../../features/detail/presentation/thread_detail_page.dart";
 import "../../features/feed/data/models/tieba_thread_model.dart";
 import "../../features/forum/presentation/forum_view.dart";
 import "../storage/storage_service.dart";
+import "../utils/app_toast.dart";
 import "../utils/haptic_feedback_util.dart";
 import "../utils/spring_page_route.dart";
 import "../widgets/app_web_view_page.dart";
@@ -39,11 +40,11 @@ class LinkRoutingService {
   }
 
   /// 智能解析并打开贴吧链接
-  static void openUrl(
+  static Future<void> openUrl(
     BuildContext context,
     String rawUrl, {
     bool replaceCurrent = false,
-  }) {
+  }) async {
     final clean = rawUrl.trim();
     if (clean.isEmpty) return;
     HapticFeedbackUtil.light();
@@ -72,47 +73,35 @@ class LinkRoutingService {
       }
     }
 
-    // 4. 其他外部 HTTP/HTTPS 链接：根据“使用内置浏览器”开关决定
-    if (clean.startsWith("http://") || clean.startsWith("https://")) {
-      try {
-        final prefs = SharedPreferencesAsync();
-        // 快速读取内置浏览器配置
-        prefs
-            .getBool(StorageService.keyUseInternalBrowser)
-            .then((useInternal) {
-              final effectiveUseInternal = useInternal ?? true;
-              if (effectiveUseInternal && context.mounted) {
-                _navigate(
-                  context,
-                  AppWebViewPage(url: clean),
-                  replace: replaceCurrent,
-                );
-              } else {
-                launchUrl(
-                  Uri.parse(clean),
-                  mode: LaunchMode.externalApplication,
-                );
-              }
-            })
-            .catchError((_) {
-              if (context.mounted) {
-                _navigate(
-                  context,
-                  AppWebViewPage(url: clean),
-                  replace: replaceCurrent,
-                );
-              }
-            });
-      } catch (_) {
-        if (context.mounted) {
-          _navigate(
-            context,
-            AppWebViewPage(url: clean),
-            replace: replaceCurrent,
-          );
-        }
-      }
+    // 与设置页共用同一 StorageService，避免读取另一份平台偏好存储。
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty ||
+        !context.mounted) {
       return;
+    }
+    final storage = ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).read(storageServiceProvider);
+    if (storage.getBool(
+      StorageService.keyUseInternalBrowser,
+      defaultValue: true,
+    )) {
+      _navigate(
+        context,
+        AppWebViewPage(url: uri.toString()),
+        replace: replaceCurrent,
+      );
+      return;
+    }
+    try {
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+          context.mounted) {
+        AppToast.show(context, '无法打开链接');
+      }
+    } catch (_) {
+      if (context.mounted) AppToast.show(context, '无法打开链接');
     }
   }
 

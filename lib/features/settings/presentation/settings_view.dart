@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/auth/account_model.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/services/link_routing_service.dart';
 import '../../../core/utils/app_dialog.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
@@ -395,12 +395,10 @@ class SettingsView extends ConsumerWidget {
               // 4. GitHub Project Link
               InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: () async {
-                  final uri = Uri.parse('https://github.com/Chengeeker/Lurk');
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
+                onTap: () => LinkRoutingService.openUrl(
+                  context,
+                  'https://github.com/Chengeeker/Lurk',
+                ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,

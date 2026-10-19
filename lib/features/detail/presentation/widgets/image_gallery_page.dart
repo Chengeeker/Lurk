@@ -795,11 +795,9 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            GlassBackgroundSource(
-              enabled: useLiquidGlass,
-              child: NotificationListener<ScrollNotification>(
-                onNotification: _handleMainGalleryScroll,
-                child: ExtendedImageGesturePageView.builder(
+            NotificationListener<ScrollNotification>(
+              onNotification: _handleMainGalleryScroll,
+              child: ExtendedImageGesturePageView.builder(
                 controller: _pageController,
                 physics: const BouncingScrollPhysics(),
                 canScrollPage: (details) => (details?.totalScale ?? 1.0) <= 1.0,
@@ -1052,7 +1050,6 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
                     ),
                   );
                 },
-                ),
               ),
             ),
             if (widget.images.length > 1)
@@ -1208,11 +1205,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
         ),
       ),
     );
-    if (!useLiquidGlass) return galleryPage;
-    return GlassAdaptiveScope(
-      minQuality: GlassQuality.standard,
-      child: GlassPage(enableBackgroundSampling: true, child: galleryPage),
-    );
+    return galleryPage;
   }
 }
 

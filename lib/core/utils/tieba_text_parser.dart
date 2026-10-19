@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../services/link_routing_service.dart';
 import 'tieba_emojis.dart';
 import 'tieba_emoticon_util.dart';
 import 'tieba_html_parser.dart';
@@ -78,7 +78,7 @@ class TiebaTextParser {
               },
           ),
         );
-      } else if (matchedStr.startsWith('http')) {
+      } else if (matchedStr.toLowerCase().startsWith('http')) {
         spans.add(
           TextSpan(
             text: '网页链接 🔗',
@@ -87,12 +87,7 @@ class TiebaTextParser {
               decoration: TextDecoration.underline,
             ),
             recognizer: TapGestureRecognizer()
-              ..onTap = () async {
-                final uri = Uri.tryParse(matchedStr);
-                if (uri != null && await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
+              ..onTap = () => LinkRoutingService.openUrl(context, matchedStr),
           ),
         );
       } else if (TiebaEmoticonUtil.hasEmoticon(matchedStr)) {
