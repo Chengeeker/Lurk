@@ -208,60 +208,79 @@ class _SearchViewState extends ConsumerState<SearchView>
 
     return Scaffold(
       appBar: LurkFrostedAppBar(
-        title: TextField(
-          controller: _controller,
-          autofocus: true,
-          textInputAction: TextInputAction.search,
-          onSubmitted: (_) => _onSearch(),
-          style: const TextStyle(fontSize: 15),
-          decoration: InputDecoration(
-            hintText: _isForumSearch
-                ? "在 ${widget.forumName} 吧内搜索..."
-                : "搜索吧、贴子或吧友...",
-            hintStyle: TextStyle(fontSize: 14, color: colorScheme.outline),
-            border: InputBorder.none,
-            prefixIcon: _isForumSearch
-                ? Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(8),
+        titleSpacing: 0,
+        leadingWidth: 48,
+        title: Row(
+          children: [
+            if (_isForumSearch) ...[
+              Container(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width * 0.3,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.forum_outlined,
+                      size: 14,
+                      color: colorScheme.onPrimaryContainer,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.forum_outlined,
-                            size: 14, color: colorScheme.onPrimaryContainer),
-                        const SizedBox(width: 4),
-                        Text(
-                          widget.forumName!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onPrimaryContainer,
-                          ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        widget.forumName!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onPrimaryContainer,
                         ),
-                      ],
+                      ),
                     ),
-                  )
-                : null,
-            prefixIconConstraints:
-                const BoxConstraints(minWidth: 0, minHeight: 0),
-            suffixIcon: _controller.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear_rounded, size: 18),
-                    onPressed: () {
-                      _controller.clear();
-                      setState(() {});
-                    },
-                  )
-                : null,
-          ),
-          onChanged: (_) => setState(() {}),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                autofocus: true,
+                textAlignVertical: TextAlignVertical.center,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _onSearch(),
+                style: const TextStyle(fontSize: 15),
+                decoration: InputDecoration(
+                  hintText: _isForumSearch ? "吧内搜索..." : "搜索吧、贴子或吧友...",
+                  hintStyle: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.outline,
+                  ),
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ],
         ),
         actions: [
+          if (_controller.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear_rounded, size: 18),
+              tooltip: "清除",
+              onPressed: () {
+                _controller.clear();
+                setState(() {});
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.search_rounded),
             tooltip: "搜索",
@@ -269,7 +288,13 @@ class _SearchViewState extends ConsumerState<SearchView>
           ),
         ],
         bottom: _isForumSearch
-            ? null
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(48),
+                child: SizedBox(
+                  height: 48,
+                  child: _buildForumSearchFilters(searchState),
+                ),
+              )
             : TabBar(
                 controller: _tabController,
                 onTap: (index) {
@@ -298,103 +323,90 @@ class _SearchViewState extends ConsumerState<SearchView>
     );
   }
 
+  Widget _buildForumSearchFilters(SearchState searchState) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      child: Row(
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildFilterPill(
+                label: "相关性",
+                selected: searchState.sortMode == 0,
+                onTap: () {
+                  if (searchState.sortMode != 0) {
+                    _onSearch(sortMode: 0);
+                  }
+                },
+              ),
+              const SizedBox(width: 6),
+              _buildFilterPill(
+                label: "时间倒序",
+                selected: searchState.sortMode == 1,
+                onTap: () {
+                  if (searchState.sortMode != 1) {
+                    _onSearch(sortMode: 1);
+                  }
+                },
+              ),
+            ],
+          ),
+          const Spacer(),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildFilterPill(
+                label: "全部",
+                selected: searchState.onlyThread == 0,
+                onTap: () {
+                  if (searchState.onlyThread != 0) {
+                    _onSearch(onlyThread: 0);
+                  }
+                },
+              ),
+              const SizedBox(width: 6),
+              _buildFilterPill(
+                label: "只看主题贴",
+                selected: searchState.onlyThread == 1,
+                onTap: () {
+                  if (searchState.onlyThread != 1) {
+                    _onSearch(onlyThread: 1);
+                  }
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   /// 吧内专属贴子搜索视图
   Widget _buildForumSearchBody(
     SearchState searchState,
     ColorScheme colorScheme,
     ThemeData theme,
   ) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            border: Border(
-              bottom: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.08),
-                width: 0.8,
-              ),
+    return searchState.isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : searchState.results.isEmpty
+        ? Center(
+            child: Text(
+              searchState.keyword.isEmpty
+                  ? "输入关键字在 ${widget.forumName} 吧内搜索"
+                  : "未找到相关贴子",
+              style: TextStyle(color: colorScheme.outline, fontSize: 13.5),
             ),
-          ),
-          child: Row(
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildFilterPill(
-                    label: "相关性",
-                    selected: searchState.sortMode == 0,
-                    onTap: () {
-                      if (searchState.sortMode != 0) {
-                        _onSearch(sortMode: 0);
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  _buildFilterPill(
-                    label: "时间倒序",
-                    selected: searchState.sortMode == 1,
-                    onTap: () {
-                      if (searchState.sortMode != 1) {
-                        _onSearch(sortMode: 1);
-                      }
-                    },
-                  ),
-                ],
-              ),
-              const Spacer(),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildFilterPill(
-                    label: "全部",
-                    selected: searchState.onlyThread == 0,
-                    onTap: () {
-                      if (searchState.onlyThread != 0) {
-                        _onSearch(onlyThread: 0);
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                  _buildFilterPill(
-                    label: "只看主题贴",
-                    selected: searchState.onlyThread == 1,
-                    onTap: () {
-                      if (searchState.onlyThread != 1) {
-                        _onSearch(onlyThread: 1);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: searchState.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : searchState.results.isEmpty
-                  ? Center(
-                      child: Text(
-                        searchState.keyword.isEmpty
-                            ? "输入关键字在 ${widget.forumName} 吧内搜索"
-                            : "未找到相关贴子",
-                        style: TextStyle(
-                            color: colorScheme.outline, fontSize: 13.5),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      itemCount: searchState.results.length,
-                      itemBuilder: (context, index) {
-                        final item = searchState.results[index];
-                        return TiebaCard(thread: item.toThreadModel());
-                      },
-                    ),
-        ),
-      ],
-    );
+          )
+        : ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            itemCount: searchState.results.length,
+            itemBuilder: (context, index) {
+              final item = searchState.results[index];
+              return TiebaCard(thread: item.toThreadModel());
+            },
+          );
   }
 
   /// 全局搜索 - 搜吧 Tab

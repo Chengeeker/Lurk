@@ -342,6 +342,8 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
   bool _showChrome = true;
   bool _routeTransitionComplete = false;
   bool _videoFullscreen = false;
+  final Set<String> _preloadingImageUrls = {};
+  Timer? _preloadTimer;
   Timer? _galleryTapTimer;
   Offset? _pendingGalleryTapPosition;
   Duration? _pendingGalleryTapTime;
@@ -367,6 +369,10 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
   @override
   void initState() {
     super.initState();
+    assert(widget.initialIndex >= 0 && widget.initialIndex < widget.images.length);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scheduleImagePreload();
+    });
     _currentIndex = widget.initialIndex;
     _activeMediaIndex = ValueNotifier(_currentIndex);
     _currentVideoUrl = _mediaAt(widget.initialIndex).videoUrl;
@@ -379,6 +385,29 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
       duration: const Duration(milliseconds: 260),
       vsync: this,
     );
+  }
+
+  void _scheduleImagePreload() {
+    _preloadTimer?.cancel();
+    _preloadTimer = Timer(const Duration(milliseconds: 100), () {
+      if (!mounted) return;
+      // Bound full-resolution warmup to the two immediate neighbours.
+      for (final index in [_currentIndex + 1, _currentIndex - 1]) {
+        if (index < 0 ||
+            index >= widget.images.length ||
+            _mediaAt(index).isVideo) continue;
+        final url = AppNetworkImage.safeUrl(_mediaAt(index).imageUrl);
+        if (url.isEmpty ||
+            _preloadingImageUrls.length >= 2 ||
+            !_preloadingImageUrls.add(url)) continue;
+        assert(_preloadingImageUrls.length <= 2);
+        unawaited(precacheImage(
+          ExtendedNetworkImageProvider(url, cache: true,
+            headers: {'User-Agent': TiebaConstants.defaultUserAgent}, printError: false),
+          context, onError: (_, _) {},
+        ).whenComplete(() => _preloadingImageUrls.remove(url)));
+      }
+    });
   }
 
   @override
@@ -402,6 +431,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
   @override
   void dispose() {
     _thumbnailSyncEpoch++;
+    _preloadTimer?.cancel();
     _cancelPendingGalleryTap();
     _routeAnimation?.removeStatusListener(_handleRouteAnimationStatus);
     _thumbnailController
@@ -821,6 +851,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
                     _currentVideoUrl = _mediaAt(i).videoUrl;
                     _currentIndex = i;
                   });
+                  _scheduleImagePreload();
                   if (!_thumbnailUserScrolling &&
                       !_thumbnailSettling &&
                       !_mainUserScrolling) {
@@ -892,6 +923,8 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
                   final url = AppNetworkImage.safeUrl(item.imageUrl);
                   final image = ExtendedImage.network(
                     url,
+                    key: ValueKey('gallery-image-$index'),
+                    gaplessPlayback: true,
                     fit: BoxFit.contain,
                     mode: ExtendedImageMode.gesture,
                     cache: true,
