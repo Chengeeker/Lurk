@@ -329,6 +329,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
   late final AnimationController _doubleTapController;
   Animation<double>? _doubleTapAnimation;
   VoidCallback? _doubleTapListener;
+  int _zoomGeneration = 0;
   late int _currentIndex;
   late ExtendedPageController _pageController;
   late PageController _thumbnailController;
@@ -369,7 +370,9 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
   @override
   void initState() {
     super.initState();
-    assert(widget.initialIndex >= 0 && widget.initialIndex < widget.images.length);
+    assert(
+      widget.initialIndex >= 0 && widget.initialIndex < widget.images.length,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _scheduleImagePreload();
     });
@@ -395,17 +398,26 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
       for (final index in [_currentIndex + 1, _currentIndex - 1]) {
         if (index < 0 ||
             index >= widget.images.length ||
-            _mediaAt(index).isVideo) continue;
+            _mediaAt(index).isVideo)
+          continue;
         final url = AppNetworkImage.safeUrl(_mediaAt(index).imageUrl);
         if (url.isEmpty ||
             _preloadingImageUrls.length >= 2 ||
-            !_preloadingImageUrls.add(url)) continue;
+            !_preloadingImageUrls.add(url))
+          continue;
         assert(_preloadingImageUrls.length <= 2);
-        unawaited(precacheImage(
-          ExtendedNetworkImageProvider(url, cache: true,
-            headers: {'User-Agent': TiebaConstants.defaultUserAgent}, printError: false),
-          context, onError: (_, _) {},
-        ).whenComplete(() => _preloadingImageUrls.remove(url)));
+        unawaited(
+          precacheImage(
+            ExtendedNetworkImageProvider(
+              url,
+              cache: true,
+              headers: {'User-Agent': TiebaConstants.defaultUserAgent},
+              printError: false,
+            ),
+            context,
+            onError: (_, _) {},
+          ).whenComplete(() => _preloadingImageUrls.remove(url)),
+        );
       }
     });
   }
@@ -439,16 +451,26 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
       ..dispose();
     _activeMediaIndex.dispose();
     _pageController.dispose();
-    if (_doubleTapListener != null) {
-      _doubleTapAnimation?.removeListener(_doubleTapListener!);
-    }
+    _stopDoubleTapAnimation();
     _doubleTapController.dispose();
     super.dispose();
   }
 
-  void _animateDoubleTap(ExtendedImageGestureState state) {
+  void _stopDoubleTapAnimation() {
+    _zoomGeneration++;
+    _doubleTapController.stop();
+    final listener = _doubleTapListener;
+    if (listener != null) _doubleTapAnimation?.removeListener(listener);
+    _doubleTapListener = null;
+    _doubleTapAnimation = null;
+  }
+
+  void _animateDoubleTap(ExtendedImageGestureState state, int pageIndex) {
+    if (!mounted || pageIndex != _currentIndex) return;
     _cancelPendingGalleryTap();
     HapticFeedbackUtil.light();
+    _stopDoubleTapAnimation();
+    final generation = _zoomGeneration;
     final pointerPosition = state.pointerDownPosition;
     final currentScale = state.gestureDetails?.totalScale ?? 1.0;
     final targetScale = currentScale <= 1.05
@@ -457,12 +479,6 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
         ? 6.0
         : 1.0;
 
-    _doubleTapController
-      ..stop()
-      ..reset();
-    if (_doubleTapListener != null) {
-      _doubleTapAnimation?.removeListener(_doubleTapListener!);
-    }
     _doubleTapAnimation = Tween<double>(begin: currentScale, end: targetScale)
         .animate(
           CurvedAnimation(
@@ -470,12 +486,18 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
             curve: Curves.easeOutCubic,
           ),
         );
-    _doubleTapListener = () => state.handleDoubleTap(
-      scale: _doubleTapAnimation!.value,
-      doubleTapPosition: pointerPosition,
-    );
+    _doubleTapListener = () {
+      if (!mounted ||
+          pageIndex != _currentIndex ||
+          generation != _zoomGeneration)
+        return;
+      state.handleDoubleTap(
+        scale: _doubleTapAnimation!.value,
+        doubleTapPosition: pointerPosition,
+      );
+    };
     _doubleTapAnimation!.addListener(_doubleTapListener!);
-    _doubleTapController.forward();
+    _doubleTapController.forward(from: 0);
   }
 
   Widget _withGalleryHero(int index, Widget child) {
@@ -837,6 +859,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
                 itemCount: widget.images.length,
                 onPageChanged: (i) {
                   if (i != _currentIndex) {
+                    _stopDoubleTapAnimation();
                     _cancelPendingGalleryTap();
                     if (_thumbnailUserScrolling) {
                       HapticFeedbackUtil.selectionTick();
@@ -929,9 +952,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
                     mode: ExtendedImageMode.gesture,
                     cache: true,
                     headers: {'User-Agent': TiebaConstants.defaultUserAgent},
-                    onDoubleTap: (state) {
-                      _animateDoubleTap(state);
-                    },
+                    onDoubleTap: (state) => _animateDoubleTap(state, index),
                     enableSlideOutPage: false,
                     initGestureConfigHandler: (state) {
                       return GestureConfig(

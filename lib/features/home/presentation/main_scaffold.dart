@@ -38,6 +38,13 @@ const _mainNavigationDestinations = <_MainNavigationDestination>[
   ),
 ];
 
+LiquidGlassSettings lurkLiquidGlassSettingsForBrightness(
+  Brightness brightness,
+  LiquidGlassSettings settings,
+) => brightness == Brightness.light
+    ? settings.copyWith(glassColor: const Color(0xF0FFFFFF), rimLight: 1)
+    : settings;
+
 double _floatingNavigationBarWidth(BuildContext context) =>
     math.min(440.0, MediaQuery.sizeOf(context).width - 40.0).toDouble() * 8 / 9;
 
@@ -537,6 +544,9 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isLightMode = theme.brightness == Brightness.light;
+    final colorScheme = theme.colorScheme;
     assert(
       !_isJellyDragging ||
           _activePointer != null ||
@@ -558,53 +568,95 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar> {
                 onPointerMove: _onPointerMove,
                 onPointerUp: _onPointerUp,
                 onPointerCancel: _onPointerCancel,
-                child: GlassTabBar.bottom(
-                  tabs: [
-                    for (final destination in _mainNavigationDestinations)
-                      GlassTab(
-                        icon: Icon(destination.icon),
-                        activeIcon: Icon(destination.selectedIcon),
-                        label: destination.label,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    GlassTabBar.bottom(
+                      tabs: [
+                        for (final destination in _mainNavigationDestinations)
+                          GlassTab(
+                            icon: Icon(destination.icon),
+                            activeIcon: Icon(destination.selectedIcon),
+                            label: destination.label,
+                          ),
+                      ],
+                      selectedIndex: widget.selectedIndex,
+                      onTabSelected: _onTabSelected,
+                      barHeight: 56,
+                      horizontalPadding: 0,
+                      verticalPadding: 0,
+                      barBorderRadius: 9999,
+                      indicatorBorderRadius: 9999,
+                      settings: lurkLiquidGlassSettingsForBrightness(
+                        theme.brightness,
+                        const LiquidGlassSettings(
+                          glassColor: Color(0x66000000),
+                          bodyMode: GlassBodyMode.clear,
+                          thickness: 10,
+                          blur: 2.0,
+                          lightIntensity: 0.25,
+                          ambientStrength: 0,
+                          refractiveIndex: 1.19,
+                          chromaticAberration: 0.008,
+                          shadowElevation: 0,
+                        ),
+                      ),
+                      indicatorSettings: LiquidGlassSettings(
+                        glassColor: isLightMode
+                            ? const Color(0x18000000)
+                            : const Color(0x00FFFFFF),
+                        bodyMode: isLightMode
+                            ? GlassBodyMode.clear
+                            : GlassBodyMode.adaptive,
+                        refractiveIndex: 1.18,
+                        chromaticAberration: 0.025,
+                        rimShade: isLightMode ? 0.12 : 0,
+                        rimLight: isLightMode ? 0.35 : 0,
+                      ),
+                      quality: GlassQuality.premium,
+                      backgroundQuality: GlassQuality.premium,
+                      maskingQuality: MaskingQuality.high,
+                      enableBlend: true,
+                      indicatorColor: isLightMode
+                          ? const Color(0x26000000)
+                          : const Color(0x66000000),
+                      interactionGlowColor: const Color(0x20FFFFFF),
+                      indicatorPinchStrength: _isJellyDragging ? 0.7 : 0.0,
+                      indicatorExpansion: _isJellyDragging
+                          ? const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            )
+                          : EdgeInsets.zero,
+                      innerBlur: 6,
+                      pressScale: 1.06,
+                      selectedIconColor: isLightMode
+                          ? colorScheme.primary
+                          : Colors.white,
+                      selectedLabelColor: isLightMode
+                          ? colorScheme.primary
+                          : Colors.white,
+                      unselectedIconColor: isLightMode
+                          ? colorScheme.onSurfaceVariant
+                          : Colors.white,
+                      unselectedLabelColor: isLightMode
+                          ? colorScheme.onSurfaceVariant
+                          : Colors.white,
+                    ),
+                    if (isLightMode)
+                      IgnorePointer(
+                        child: DecoratedBox(
+                          key: const ValueKey('liquid-glass-light-rim'),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(9999),
+                            border: Border.all(
+                              color: const Color(0xF5FFFFFF),
+                              width: 1,
+                            ),
+                          ),
+                        ),
                       ),
                   ],
-                  selectedIndex: widget.selectedIndex,
-                  onTabSelected: _onTabSelected,
-                  barHeight: 56,
-                  horizontalPadding: 0,
-                  verticalPadding: 0,
-                  barBorderRadius: 9999,
-                  indicatorBorderRadius: 9999,
-                  settings: const LiquidGlassSettings(
-                    glassColor: Color(0x66000000),
-                    bodyMode: GlassBodyMode.clear,
-                    thickness: 10,
-                    blur: 2.0,
-                    lightIntensity: 0.25,
-                    ambientStrength: 0,
-                    refractiveIndex: 1.19,
-                    chromaticAberration: 0.008,
-                    shadowElevation: 0,
-                  ),
-                  indicatorSettings: const LiquidGlassSettings(
-                    refractiveIndex: 1.18,
-                    chromaticAberration: 0.025,
-                  ),
-                  quality: GlassQuality.premium,
-                  backgroundQuality: GlassQuality.premium,
-                  maskingQuality: MaskingQuality.high,
-                  enableBlend: true,
-                  indicatorColor: const Color(0x66000000),
-                  interactionGlowColor: const Color(0x20FFFFFF),
-                  indicatorPinchStrength: _isJellyDragging ? 0.7 : 0.0,
-                  indicatorExpansion: _isJellyDragging
-                      ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
-                      : EdgeInsets.zero,
-                  innerBlur: 6,
-                  pressScale: 1.06,
-                  selectedIconColor: Colors.white,
-                  selectedLabelColor: Colors.white,
-                  unselectedIconColor: Colors.white,
-                  unselectedLabelColor: Colors.white,
                 ),
               ),
             ),
