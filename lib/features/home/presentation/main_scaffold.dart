@@ -42,7 +42,11 @@ LiquidGlassSettings lurkLiquidGlassSettingsForBrightness(
   Brightness brightness,
   LiquidGlassSettings settings,
 ) => brightness == Brightness.light
-    ? settings.copyWith(glassColor: const Color(0xF0FFFFFF), rimLight: 1)
+    ? settings.copyWith(
+        glassColor: const Color(0xF0FFFFFF),
+        rimLight: 1,
+        shadowElevation: 0.55,
+      )
     : settings;
 
 double _floatingNavigationBarWidth(BuildContext context) =>

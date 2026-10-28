@@ -304,7 +304,7 @@ class ImageGalleryPage extends ConsumerStatefulWidget {
       PageRouteBuilder(
         opaque: false,
         barrierColor: Colors.black,
-        transitionDuration: const Duration(milliseconds: 220),
+        transitionDuration: const Duration(milliseconds: 330),
         reverseTransitionDuration: const Duration(milliseconds: 200),
         pageBuilder: (context, _, __) => ImageGalleryPage(
           images: imageUrls,
@@ -342,6 +342,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
   final Expando<ExtendedImageGesture> _pagingImages = Expando();
   bool _showChrome = true;
   bool _routeTransitionComplete = false;
+  bool _isReturning = false;
   bool _videoFullscreen = false;
   final Set<String> _preloadingImageUrls = {};
   Timer? _preloadTimer;
@@ -431,13 +432,23 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
     _routeAnimation = routeAnimation;
     _routeTransitionComplete =
         routeAnimation?.status == AnimationStatus.completed;
+    _isReturning = false;
     routeAnimation?.addStatusListener(_handleRouteAnimationStatus);
   }
 
   void _handleRouteAnimationStatus(AnimationStatus status) {
     final complete = status == AnimationStatus.completed;
-    if (complete == _routeTransitionComplete) return;
-    setState(() => _routeTransitionComplete = complete);
+    final returning =
+        status == AnimationStatus.reverse ||
+        (_isReturning && status != AnimationStatus.completed);
+    if (!mounted ||
+        (complete == _routeTransitionComplete && returning == _isReturning)) {
+      return;
+    }
+    setState(() {
+      _routeTransitionComplete = complete;
+      _isReturning = returning;
+    });
   }
 
   @override
@@ -837,6 +848,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
     final useLiquidGlass = ref.watch(
       themeProvider.select((state) => state.useLiquidGlass),
     );
+    final hideGlassChromeForReturn = useLiquidGlass && _isReturning;
     final galleryPage = ExtendedImageSlidePage(
       slideAxis: SlideAxis.horizontal,
       slideType: SlideType.onlyImage,
@@ -1106,7 +1118,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
                 },
               ),
             ),
-            if (widget.images.length > 1)
+            if (widget.images.length > 1 && !hideGlassChromeForReturn)
               Positioned(
                 left: 12,
                 right: 12,
@@ -1121,7 +1133,9 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
                   ),
                 ),
               ),
-            if (_showChrome && _routeTransitionComplete)
+            if (_showChrome &&
+                _routeTransitionComplete &&
+                !hideGlassChromeForReturn)
               Positioned(
                 top: 0,
                 left: 0,
