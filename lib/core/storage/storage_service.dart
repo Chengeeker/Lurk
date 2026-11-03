@@ -2,11 +2,254 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../auth/account_model.dart';
 
 class StorageService {
   final SharedPreferences _prefs;
+  final FlutterSecureStorage _secureStorage;
 
-  StorageService(this._prefs);
+  StorageService(this._prefs, {FlutterSecureStorage? secureStorage})
+    : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+
+  static const secureAccountsKey = 'lurk_auth_accounts_v1';
+  static const keyWebDavUrl = 'key_webdav_url';
+  static const keyWebDavUsername = 'key_webdav_username';
+  static const keyWebDavPassword = 'key_webdav_password';
+  static const keyWebDavDirectory = 'key_webdav_directory';
+  String getWebDavUrl() => getString(keyWebDavUrl);
+  String getWebDavUsername() => getString(keyWebDavUsername);
+  String getWebDavPassword() => getString(keyWebDavPassword);
+  String getWebDavDirectory() =>
+      getString(keyWebDavDirectory, defaultValue: 'Lurk');
+  Future<bool> setWebDavUrl(String value) => setString(keyWebDavUrl, value);
+  Future<bool> setWebDavUsername(String value) =>
+      setString(keyWebDavUsername, value);
+  Future<bool> setWebDavPassword(String value) =>
+      setString(keyWebDavPassword, value);
+  Future<bool> setWebDavDirectory(String value) =>
+      setString(keyWebDavDirectory, value);
+
+  static const _backupBools = {
+    keyUseDynamicColor,
+    keyIsPureBlackDark,
+    keyEnableHaptics,
+    keyUseFloatingNavBar,
+    keyUseLiquidGlass,
+    keyShowFps,
+    keyHideBlockedCompletely,
+    keyBlockVideoThreads,
+    keyRecommendFollowedOnly,
+    keyUseInternalBrowser,
+    keyHabitAutoLoadMore,
+    keyHabitDoubleTapTop,
+    keyHabitShowOriginalImg,
+    keyHabitDoubleTapFeedRefresh,
+    keyHabitDoNotSaveHistory,
+    keyMyForumsSingleColumn,
+    keyAutoClearCacheOnExit,
+    keyBookmarkSortOrder,
+  };
+  static const _backupInts = {
+    keyThemeMode,
+    keyThemeColorIndex,
+    keyFontWeightIndex,
+    keyFontSizePercent,
+    keyRefreshRateIndex,
+    keyHabitInitialTabIndex,
+    keyHabitImageLoadMode,
+    keyHabitForumDefaultSort,
+    keyImageSavePathType,
+    keyVideoSavePathType,
+    keyAutoClearCacheThresholdMb,
+  };
+  static const _backupLists = {
+    keyBookmarks,
+    keyBookmarkPendingAdds,
+    keyBookmarkPendingRemoves,
+    keyBrowsingHistory,
+    keyForumBrowsingHistory,
+    keyBlockWords,
+    keyWhiteWords,
+  };
+  static const _backupStrings = {
+    keyWebDavUrl,
+    keyWebDavUsername,
+    keyWebDavDirectory,
+  };
+  static const _credentials = {
+    keyAccounts,
+    keyActiveAccountUid,
+    keyActiveAccountName,
+    keyWebDavPassword,
+  };
+
+  static bool _isBackupList(String key) =>
+      _backupLists.contains(key) ||
+      [keyBookmarks, keyBookmarkPendingAdds, keyBookmarkPendingRemoves].any(
+        (prefix) =>
+            key.startsWith('${prefix}_') &&
+            RegExp(r'^[a-zA-Z0-9_-]+$')
+                .hasMatch(key.substring(prefix.length + 1)),
+      );
+  static bool _allowedBackupKey(String key) =>
+      _backupBools.contains(key) ||
+      _backupInts.contains(key) ||
+      _backupStrings.contains(key) ||
+      _isBackupList(key);
+
+  static List<AccountModel> _validateAccounts(dynamic raw, dynamic activeUid) {
+    if (raw is! List ||
+        raw.any((item) => item is! String) ||
+        activeUid is! String) {
+      throw const FormatException('无效的备份账号');
+    }
+    final accounts = <AccountModel>[];
+    final ids = <String>{};
+    for (final item in raw) {
+      final map = jsonDecode(item as String);
+      if (map is! Map<String, dynamic> ||
+          map['uid'] is! String ||
+          (map['uid'] as String).isEmpty ||
+          map['bduss'] is! String ||
+          !ids.add(map['uid'] as String)) {
+        throw const FormatException('无效的备份账号');
+      }
+      for (final key in [
+        'name',
+        'nameShow',
+        'portrait',
+        'stoken',
+        'baiduid',
+        'tbs',
+      ]) {
+        if (map[key] != null && map[key] is! String) {
+          throw const FormatException('无效的账号字段');
+        }
+      }
+      if (map['isLogin'] != null && map['isLogin'] is! bool) {
+        throw const FormatException('无效的登录状态');
+      }
+      accounts.add(AccountModel.fromJson(map));
+    }
+    if ((accounts.isEmpty && activeUid.isNotEmpty) ||
+        (accounts.isNotEmpty && !ids.contains(activeUid))) {
+      throw const FormatException('备份的当前账号不匹配');
+    }
+    return accounts;
+  }
+
+  Future<Map<String, dynamic>> exportAllData({
+    bool includeCredentials = false,
+  }) async {
+    final preferences = <String, dynamic>{
+      for (final key in _prefs.getKeys())
+        if (_allowedBackupKey(key)) key: _prefs.get(key),
+    };
+    if (includeCredentials) {
+      // A failed secure read must not produce an apparently complete backup.
+      final secure = await _secureStorage.read(key: secureAccountsKey);
+      final legacy = getStringList(keyAccounts);
+      var raw = secure == null ? legacy : jsonDecode(secure);
+      if (raw is List && raw.isEmpty && legacy.isNotEmpty) {
+        raw = legacy;
+      } else if (secure != null &&
+          legacy.isNotEmpty &&
+          jsonEncode(raw) != jsonEncode(legacy)) {
+        throw StateError('账号存储不一致，无法生成完整备份');
+      }
+      var active = getString(keyActiveAccountUid);
+      if (raw is List && raw.isEmpty) active = '';
+      if (active.isEmpty &&
+          raw is List &&
+          raw.isNotEmpty &&
+          raw.first is String) {
+        final first = jsonDecode(raw.first as String);
+        if (first is Map && first['uid'] is String) {
+          active = first['uid'] as String;
+        }
+      }
+      final accounts = _validateAccounts(raw, active);
+      preferences.addAll({
+        keyAccounts: accounts.map((a) => jsonEncode(a.toJson())).toList(),
+        keyActiveAccountUid: active,
+        keyActiveAccountName: accounts.isEmpty
+            ? ''
+            : accounts.firstWhere((a) => a.uid == active).displayName,
+        keyWebDavPassword: getWebDavPassword(),
+      });
+    }
+    return {
+      'app': 'Lurk',
+      'version': '2.0',
+      'backup_mode': includeCredentials ? 'full' : 'safe',
+      'exported_at': DateTime.now().toIso8601String(),
+      'preferences': preferences,
+    };
+  }
+
+  Map<String, dynamic> _validatedPreferences(Map<String, dynamic> data) {
+    if (data['app'] != 'Lurk' ||
+        data['version'] != '2.0' ||
+        !['safe', 'full'].contains(data['backup_mode']) ||
+        data['preferences'] is! Map<String, dynamic>) {
+      throw const FormatException('无效的 Lurk 备份');
+    }
+    final full = data['backup_mode'] == 'full';
+    final prefs = Map<String, dynamic>.from(data['preferences'] as Map);
+    for (final entry in prefs.entries) {
+      final key = entry.key;
+      if (!_allowedBackupKey(key) && !(full && _credentials.contains(key))) {
+        continue;
+      }
+      final v = entry.value;
+      final valid = _backupBools.contains(key)
+          ? v is bool
+          : _backupInts.contains(key)
+          ? v is int
+          : (_isBackupList(key) || key == keyAccounts)
+          ? v is List && v.every((x) => x is String)
+          : v is String;
+      if (!valid) throw const FormatException('无效的备份设置');
+    }
+    if (full) {
+      if (!_credentials.every(prefs.containsKey)) {
+        throw const FormatException('全量备份缺少凭据组');
+      }
+      _validateAccounts(prefs[keyAccounts], prefs[keyActiveAccountUid]);
+    }
+    return prefs;
+  }
+
+  Future<void> restoreAllData(Map<String, dynamic> data) async {
+    // Validate the entire document before replacing any local data.
+    final prefs = _validatedPreferences(data);
+    final full = data['backup_mode'] == 'full';
+    if (full) {
+      await _secureStorage.write(
+        key: secureAccountsKey,
+        value: jsonEncode(prefs[keyAccounts]),
+      );
+      if (!await _prefs.remove(keyAccounts)) throw StateError('旧凭据清理失败');
+    }
+    for (final entry in prefs.entries) {
+      if (entry.key == keyAccounts ||
+          (!_allowedBackupKey(entry.key) &&
+              !(full && _credentials.contains(entry.key)))) {
+        continue;
+      }
+      final v = entry.value;
+      final saved = v is bool
+          ? await _prefs.setBool(entry.key, v)
+          : v is int
+          ? await _prefs.setInt(entry.key, v)
+          : v is String
+          ? await _prefs.setString(entry.key, v)
+          : await _prefs.setStringList(entry.key, List<String>.from(v as List));
+      if (!saved) throw StateError('备份数据写入失败');
+    }
+  }
 
   static const String keyThemeMode = 'key_theme_mode';
   static const String keyUseDynamicColor = 'key_use_dynamic_color';

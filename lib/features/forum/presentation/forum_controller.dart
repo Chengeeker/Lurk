@@ -89,6 +89,7 @@ class ForumController extends StateNotifier<ForumState> {
   final ForumRepository _repository;
   final Ref _ref;
   final String forumName;
+  int _accountRevision = 0;
 
   ForumController(
     this._repository,
@@ -97,10 +98,31 @@ class ForumController extends StateNotifier<ForumState> {
     int initialSortType = 0,
   }) : super(ForumState(sortType: initialSortType)) {
     refresh();
+    _ref.listen<AuthState>(authStateProvider, (previous, next) {
+      if (previous?.activeAccount?.uid == next.activeAccount?.uid) return;
+      _accountRevision++;
+      state = ForumState(sortType: state.sortType);
+      refresh();
+    });
+    _ref.listen<MyForumsState>(myForumsControllerProvider, (_, next) {
+      final forum = state.forum;
+      if (forum == null || forum.isSigned) return;
+      if (next.forums.any(
+        (item) =>
+            (item.name == forumName ||
+                (forum.id.isNotEmpty &&
+                    forum.id != '0' &&
+                    item.id == forum.id)) &&
+            item.isSigned,
+      )) {
+        state = state.copyWith(forum: forum.copyWith(isSigned: true));
+      }
+    });
   }
 
   Future<void> refresh() async {
     if (state.isRefreshing) return;
+    final revision = _accountRevision;
     state = state.copyWith(isRefreshing: true, errorMessage: null);
 
     try {
@@ -115,6 +137,8 @@ class ForumController extends StateNotifier<ForumState> {
         isGood: state.isGood,
       );
 
+      if (!mounted || revision != _accountRevision) return;
+
       var forum = res['forum'] as ForumDetailModel? ?? state.forum;
       if (forum != null) {
         // 双重校验：结合本地已关注贴吧缓存保证关注与签到状态实时可靠
@@ -127,7 +151,10 @@ class ForumController extends StateNotifier<ForumState> {
           final cached = matched.first;
           forum = forum.copyWith(
             isLiked: true,
-            isSigned: forum.isSigned || cached.isSigned,
+            isSigned:
+                forum.isSigned ||
+                cached.isSigned ||
+                state.forum?.isSigned == true,
           );
         }
       }
@@ -142,6 +169,7 @@ class ForumController extends StateNotifier<ForumState> {
         isRefreshing: false,
       );
     } catch (e) {
+      if (!mounted || revision != _accountRevision) return;
       state = state.copyWith(isRefreshing: false, errorMessage: '加载吧数据失败');
     }
   }
@@ -203,12 +231,14 @@ class ForumController extends StateNotifier<ForumState> {
 
   Future<bool> signIn() async {
     final currentForum = state.forum;
-    if (currentForum == null || currentForum.isSigned || state.isSigningIn) {
+    if (currentForum?.isSigned == true) return true;
+    if (currentForum == null || state.isSigningIn) {
       return false;
     }
 
     final account = _ref.read(authStateProvider).activeAccount;
     if (account == null || !account.isLogin) return false;
+    final revision = _accountRevision;
 
     state = state.copyWith(isSigningIn: true);
     try {
@@ -219,15 +249,18 @@ class ForumController extends StateNotifier<ForumState> {
             .getValidTbs(forceRefresh: true);
       }
 
+      if (!mounted || revision != _accountRevision) return false;
       var success = await _repository.signForum(
         forumName: forumName,
         forumId: currentForum.id,
         tbs: tbs,
       );
+      if (!mounted || revision != _accountRevision) return false;
       if (!success) {
         final freshTbs = await _ref
             .read(authStateProvider.notifier)
             .getValidTbs(forceRefresh: true);
+        if (!mounted || revision != _accountRevision) return false;
         if (freshTbs.isNotEmpty && freshTbs != tbs) {
           success = await _repository.signForum(
             forumName: forumName,
@@ -236,15 +269,18 @@ class ForumController extends StateNotifier<ForumState> {
           );
         }
       }
+      if (!mounted || revision != _accountRevision) return false;
       if (success) {
         state = state.copyWith(
           isSigningIn: false,
-          forum: currentForum.copyWith(isSigned: true),
+          forum: (state.forum ?? currentForum).copyWith(isSigned: true),
         );
+        _ref.read(myForumsControllerProvider.notifier).markSigned(forumName);
         await _ref.read(myForumsControllerProvider.notifier).refresh();
-        return true;
+        return mounted && revision == _accountRevision;
       }
     } catch (_) {}
+    if (!mounted || revision != _accountRevision) return false;
     state = state.copyWith(isSigningIn: false);
     return false;
   }

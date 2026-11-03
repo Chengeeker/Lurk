@@ -200,11 +200,9 @@ class FloorItem extends ConsumerWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
+        return Material(
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: SafeArea(
             top: false,
             child: Column(
@@ -332,8 +330,11 @@ class FloorItem extends ConsumerWidget {
         .map((s) => s.originSrc ?? s.bigCdnSrc ?? s.cdnSrc ?? '')
         .where((s) => s.isNotEmpty)
         .toList();
+    final imageHeroScope = ('comment-gallery', threadId, floor.id, floor.floor);
 
     return InkWell(
+      enableFeedback: false,
+      splashFactory: InkSplash.splashFactory,
       onLongPress: () {
         HapticFeedbackUtil.light();
         _showFloorActionSheet(context, ref, canDelete: canDelete);
@@ -473,15 +474,23 @@ class FloorItem extends ConsumerWidget {
                                           : imageUrls.length - 1,
                                     ),
                                     folderName: floor.author.displayName,
+                                    heroScope: imageHeroScope,
                                   );
                                 },
-                                child: AppNetworkImage(
-                                  url: displayUrl,
-                                  fit: BoxFit.cover,
-                                  constraints: const BoxConstraints(
-                                    maxHeight: 280,
+                                behavior: HitTestBehavior.opaque,
+                                child: ImageGalleryHeroThumbnail(
+                                  scope: imageHeroScope,
+                                  index: currentIdx,
+                                  mediaIdentity: displayUrl,
+                                  thumbnailUsesCover: false,
+                                  child: AppNetworkImage(
+                                    url: displayUrl,
+                                    fit: BoxFit.cover,
+                                    constraints: const BoxConstraints(
+                                      maxHeight: 280,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
-                                  borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
                             ),
@@ -500,11 +509,13 @@ class FloorItem extends ConsumerWidget {
                             size: 19.0,
                           ),
                         );
-                      } else if (seg.text.isNotEmpty) {
+                      } else if (seg.text.isNotEmpty ||
+                          (seg.type == 1 && seg.url?.isNotEmpty == true)) {
                         currentInlineSpans.addAll(
                           TiebaTextParser.parseRichText(
                             context,
                             seg.text,
+                            linkUrl: seg.type == 1 ? seg.url : null,
                             baseStyle: TextStyle(
                               color: colorScheme.onSurface,
                               fontSize: 14,

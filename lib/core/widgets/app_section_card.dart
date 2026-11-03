@@ -14,6 +14,11 @@ class AppSectionCard extends StatelessWidget {
     this.borderRadius = const BorderRadius.all(Radius.circular(24)),
   });
 
+  static TextStyle itemTitleStyle(BuildContext context) => Theme.of(context)
+      .textTheme
+      .titleMedium!
+      .copyWith(fontSize: 16, color: Theme.of(context).colorScheme.onSurface);
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -27,7 +32,10 @@ class AppSectionCard extends StatelessWidget {
         borderRadius: borderRadius,
         side: BorderSide.none,
       ),
-      child: child,
+      child: ListTileTheme.merge(
+        titleTextStyle: itemTitleStyle(context),
+        child: child,
+      ),
     );
   }
 }

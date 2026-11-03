@@ -36,7 +36,7 @@ class BlockSettingsPage extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            padding: const EdgeInsetsDirectional.only(start: 16, bottom: 8),
             child: Text(
               '内容过滤与屏蔽',
               style: TextStyle(
@@ -57,7 +57,6 @@ class BlockSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     '屏蔽词管理',
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
                     '黑名单 ${blockState.blockWords.length} 个  |  白名单 ${blockState.whiteWords.length} 个',
@@ -71,11 +70,6 @@ class BlockSettingsPage extends ConsumerWidget {
                     );
                   },
                 ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
-                ),
                 SwitchListTile(
                   secondary: Icon(
                     Icons.visibility_off_outlined,
@@ -83,18 +77,12 @@ class BlockSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     '彻底隐藏被屏蔽的内容',
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   value: blockState.hideBlockedCompletely,
                   onChanged: (val) {
                     HapticFeedbackUtil.light();
                     blockNotifier.setHideBlockedCompletely(val);
                   },
-                ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
                 ),
                 SwitchListTile(
                   secondary: Icon(
@@ -103,18 +91,12 @@ class BlockSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     '不看视频贴',
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   value: blockState.blockVideoThreads,
                   onChanged: (val) {
                     HapticFeedbackUtil.light();
                     blockNotifier.setBlockVideoThreads(val);
                   },
-                ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
                 ),
                 SwitchListTile(
                   secondary: Icon(
@@ -123,7 +105,6 @@ class BlockSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     '只推荐已关注的吧',
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   value: blockState.recommendFollowedOnly,
                   onChanged: (val) {

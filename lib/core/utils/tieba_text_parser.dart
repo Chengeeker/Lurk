@@ -15,6 +15,9 @@ class TiebaTextParser {
     TextStyle? baseStyle,
     bool collapseWhitespace = false,
     Color? linkColor,
+    String? linkUrl,
+    bool useLinkNames = false,
+    bool trimWhitespace = true,
     void Function(String userName)? onUserTap,
     void Function(String topic)? onTopicTap,
   }) {
@@ -23,12 +26,37 @@ class TiebaTextParser {
     final primary = linkColor ?? colorScheme.primary;
 
     final List<InlineSpan> spans = [];
-    var normalizedText = TiebaHtmlParser.toPlainText(rawText);
+    var normalizedText = TiebaHtmlParser.toPlainText(
+      rawText,
+      trim: trimWhitespace,
+    );
     if (collapseWhitespace) {
       normalizedText = normalizedText
           .replaceAll(RegExp(r'[\r\n\u0085\u2028\u2029]+'), ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
+          .replaceAll(RegExp(r'\s+'), ' ');
+      if (trimWhitespace) normalizedText = normalizedText.trim();
+    }
+    final explicitLink = Uri.tryParse(linkUrl?.trim() ?? '');
+    if (explicitLink != null &&
+        (explicitLink.scheme == 'https' || explicitLink.scheme == 'http') &&
+        explicitLink.host.isNotEmpty) {
+      return [
+        TextSpan(
+          text: useLinkNames
+              ? LinkRoutingService.labelForUrl(
+                  explicitLink.toString(),
+                  title: normalizedText,
+                )
+              : (normalizedText.isEmpty ? '网页链接 🔗' : normalizedText),
+          style: (baseStyle ?? const TextStyle()).copyWith(
+            color: primary,
+            decoration: TextDecoration.underline,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () =>
+                LinkRoutingService.openUrl(context, explicitLink.toString()),
+        ),
+      ];
     }
     if (normalizedText.isEmpty) return spans;
 
@@ -81,7 +109,9 @@ class TiebaTextParser {
       } else if (matchedStr.toLowerCase().startsWith('http')) {
         spans.add(
           TextSpan(
-            text: '网页链接 🔗',
+            text: useLinkNames
+                ? LinkRoutingService.labelForUrl(matchedStr)
+                : '网页链接 🔗',
             style: (baseStyle ?? const TextStyle()).copyWith(
               color: primary,
               decoration: TextDecoration.underline,

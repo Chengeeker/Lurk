@@ -111,11 +111,13 @@ class MyForumsView extends ConsumerWidget {
               onPressed: forumsState.isSigning
                   ? null
                   : () async {
+                      final uid = ref.read(authStateProvider).activeAccount?.uid;
                       final ok = await ref
                           .read(myForumsControllerProvider.notifier)
                           .batchSign();
-                      if (context.mounted) {
-                        AppToast.show(
+                      if (context.mounted &&
+                          ref.read(authStateProvider).activeAccount?.uid == uid) {
+                        AppToast.showBottom(
                           context,
                           ok ? '一键签到完成（已签≥7级吧）' : '签到遇到问题，请重试',
                         );

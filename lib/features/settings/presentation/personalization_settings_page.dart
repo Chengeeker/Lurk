@@ -22,7 +22,7 @@ class PersonalizationSettingsPage extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 0, 16, 12),
           child: Text(
             title,
             style: theme.textTheme.titleSmall?.copyWith(
@@ -61,12 +61,10 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                         value: ThemeMode.system,
                         title: Text('跟随系统'),
                       ),
-                      Divider(height: 1),
                       RadioListTile<ThemeMode>(
                         value: ThemeMode.light,
                         title: Text('浅色模式'),
                       ),
-                      Divider(height: 1),
                       RadioListTile<ThemeMode>(
                         value: ThemeMode.dark,
                         title: Text('深色模式'),
@@ -74,7 +72,6 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const Divider(height: 1),
                 SwitchListTile(
                   secondary: const Icon(Icons.contrast_rounded, size: 24),
                   title: const Text('纯黑深色模式 (OLED 省电)'),
@@ -102,7 +99,6 @@ class PersonalizationSettingsPage extends ConsumerWidget {
                   },
                 ),
                 if (!themeState.useDynamicColor) ...[
-                  const Divider(height: 1),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                     child: Align(

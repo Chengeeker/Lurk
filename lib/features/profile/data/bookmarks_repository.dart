@@ -13,6 +13,21 @@ class BookmarksRepository {
 
   BookmarksRepository(this._client, this._storage);
 
+  TiebaThreadModel _keepPreview(
+    TiebaThreadModel remote,
+    TiebaThreadModel? local,
+  ) {
+    if (remote.snippetSegments.isNotEmpty ||
+        local == null ||
+        local.snippetSegments.isEmpty) {
+      return remote;
+    }
+    return remote.copyWith(
+      contentSnippet: local.contentSnippet,
+      snippetSegments: local.snippetSegments,
+    );
+  }
+
   String _uid(String? userId) => userId?.trim() ?? '';
 
   String _bookmarkKey(String? userId) =>
@@ -101,7 +116,13 @@ class BookmarksRepository {
               ),
             )
             .toList();
-        return list;
+        final local = {
+          for (final thread in getLocalBookmarks(userId: userId))
+            thread.id: thread,
+        };
+        return list
+            .map((thread) => _keepPreview(thread, local[thread.id]))
+            .toList();
       }
       return [];
     } catch (e) {
@@ -284,7 +305,8 @@ class BookmarksRepository {
         .toSet();
     final merged = <String, TiebaThreadModel>{
       for (final thread in threads)
-        if (!pendingRemoves.contains(thread.id)) thread.id: thread,
+        if (!pendingRemoves.contains(thread.id))
+          thread.id: _keepPreview(thread, localById[thread.id]),
     };
 
     for (final id in pendingAdds) {
@@ -312,7 +334,7 @@ class BookmarksRepository {
     };
     for (final thread in threads) {
       if (!pendingRemoves.contains(thread.id)) {
-        merged[thread.id] = thread;
+        merged[thread.id] = _keepPreview(thread, merged[thread.id]);
       }
     }
     await _storage.setStringList(

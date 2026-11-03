@@ -8,6 +8,15 @@ import '../../feed/data/models/tieba_thread_model.dart';
 import 'models/forum_model.dart';
 import 'tieba_image_uploader.dart';
 
+bool isForumSignSuccess(dynamic data) {
+  if (data is! Map) return false;
+  if (data['error_code'] == 0 || data['error_code'] == '0') return true;
+  final error = data['error'];
+  final message = data['error_msg'] ?? (error is Map ? error['errmsg'] : null);
+  return message is String &&
+      RegExp(r'(已经|今日已|今天已|您已|你已)(签到|签过到)').hasMatch(message);
+}
+
 class ForumRepository {
   final TiebaDioClient _client;
   final TiebaImageUploader _imageUploader = TiebaImageUploader();
@@ -243,13 +252,18 @@ class ForumRepository {
     required String forumId,
     required String tbs,
   }) async {
+    var resolvedId = forumId;
+    if (resolvedId.isEmpty || resolvedId == '0') {
+      final page = await getForumPage(forumName: forumName, page: 1);
+      resolvedId = (page['forum'] as ForumDetailModel?)?.id ?? '';
+    }
+    if (resolvedId.isEmpty || resolvedId == '0') return false;
     final res = await _client.post(
       TiebaConstants.pathSign,
-      data: {'kw': forumName, 'fid': forumId, 'tbs': tbs},
+      data: {'kw': forumName, 'fid': resolvedId, 'tbs': tbs},
     );
     final data = res.data;
-    return data is Map &&
-        (data['error_code'] == 0 || data['error_code'] == '0');
+    return isForumSignSuccess(data);
   }
 
   Future<List<UploadedThreadImage>> uploadThreadImages({

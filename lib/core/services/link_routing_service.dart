@@ -17,11 +17,37 @@ class LinkRoutingService {
   static const MethodChannel _channel = MethodChannel("com.lurk/app");
   static bool _hasInitializedListener = false;
 
+  static String labelForUrl(String url, {String title = ''}) {
+    final label = title.trim();
+    if (label.isNotEmpty &&
+        label != '网页链接' &&
+        label != '网页链接 🔗' &&
+        !RegExp(r'^https?://', caseSensitive: false).hasMatch(label)) {
+      return title;
+    }
+    final target = _resolveUri(url);
+    if (target?.host.toLowerCase() == 'pan.quark.cn') return '夸克网盘';
+    return target?.toString() ?? url;
+  }
+
+  static Uri? _resolveUri(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl.trim());
+    if (uri != null && _isTiebaHost(uri.host) && uri.path == '/mo/q/checkurl') {
+      final target = Uri.tryParse(uri.queryParameters['url'] ?? '');
+      if (target != null &&
+          (target.scheme == 'https' || target.scheme == 'http') &&
+          target.host.isNotEmpty) {
+        return target;
+      }
+    }
+    return uri;
+  }
+
   /// 判断该链接是否为贴吧支持的原生链接
   static bool canHandleNatively(String rawUrl) {
     final clean = rawUrl.trim();
     if (clean.isEmpty) return false;
-    final uri = Uri.tryParse(clean);
+    final uri = _resolveUri(clean);
     if (uri == null || !_isTiebaHost(uri.host)) return false;
 
     if (RegExp(r"^/p/[0-9]+(?:/|$)").hasMatch(uri.path)) return true;
@@ -48,7 +74,7 @@ class LinkRoutingService {
     final clean = rawUrl.trim();
     if (clean.isEmpty) return;
     HapticFeedbackUtil.light();
-    final uri = Uri.tryParse(clean);
+    final uri = _resolveUri(clean);
 
     // 1. 贴子链接匹配 (/p/{id})
     if (uri != null && _isTiebaHost(uri.host)) {

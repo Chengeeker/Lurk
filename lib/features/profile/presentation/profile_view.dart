@@ -178,11 +178,7 @@ class ProfileView extends ConsumerWidget {
                         }
                       },
                     ),
-                    Container(
-                      height: 28,
-                      width: 0.8,
-                      color: theme.dividerColor.withValues(alpha: 0.15),
-                    ),
+                    const SizedBox(width: 0.8),
                     _buildStatItem(
                       context,
                       count: '${profile?.fansNum ?? 0}',
@@ -191,11 +187,7 @@ class ProfileView extends ConsumerWidget {
                         _showFansDialog(context, profile?.fansNum ?? 0);
                       },
                     ),
-                    Container(
-                      height: 28,
-                      width: 0.8,
-                      color: theme.dividerColor.withValues(alpha: 0.15),
-                    ),
+                    const SizedBox(width: 0.8),
                     _buildStatItem(
                       context,
                       count: '${profile?.postNum ?? 0}',
@@ -215,11 +207,7 @@ class ProfileView extends ConsumerWidget {
                         }
                       },
                     ),
-                    Container(
-                      height: 28,
-                      width: 0.8,
-                      color: theme.dividerColor.withValues(alpha: 0.15),
-                    ),
+                    const SizedBox(width: 0.8),
                     _buildStatItem(
                       context,
                       count: '${profile?.agreeNum ?? 0}',
@@ -240,7 +228,7 @@ class ProfileView extends ConsumerWidget {
 
             // (b) Menu List: 我的收藏, 浏览记录, 设置, 关于 (MD3E Style)
             Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              padding: const EdgeInsetsDirectional.only(start: 16, bottom: 8),
               child: Text(
                 '快捷功能',
                 style: TextStyle(
@@ -266,11 +254,6 @@ class ProfileView extends ConsumerWidget {
                       );
                     },
                   ),
-                  Divider(
-                    height: 1,
-                    indent: 56,
-                    color: theme.dividerColor.withValues(alpha: 0.1),
-                  ),
                   _buildMenuItem(
                     icon: Icons.history_rounded,
                     iconColor: colorScheme.onSurfaceVariant,
@@ -282,11 +265,6 @@ class ProfileView extends ConsumerWidget {
                         SpringPageRoute(page: const HistoryView()),
                       );
                     },
-                  ),
-                  Divider(
-                    height: 1,
-                    indent: 56,
-                    color: theme.dividerColor.withValues(alpha: 0.1),
                   ),
                   _buildMenuItem(
                     icon: Icons.settings_outlined,

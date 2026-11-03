@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/material.dart' show DateUtils;
 
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/storage/storage_service.dart';
@@ -37,18 +38,44 @@ class MyForumsController extends StateNotifier<MyForumsState> {
   final MyForumsRepository _repository;
   final Ref _ref;
   int _refreshSequence = 0;
+  int _accountRevision = 0;
+  DateTime _signDay = DateUtils.dateOnly(DateTime.now());
+  final Set<String> _confirmedSigns = {};
+
+  void _checkSignDay() {
+    final today = DateUtils.dateOnly(DateTime.now());
+    if (today != _signDay) {
+      _signDay = today;
+      _confirmedSigns.clear();
+    }
+  }
+
+  void markSigned(String forumName) {
+    _checkSignDay();
+    _confirmedSigns.add(forumName);
+    state = state.copyWith(
+      forums: [
+        for (final forum in state.forums)
+          forum.name == forumName ? forum.copyWith(isSigned: true) : forum,
+      ],
+    );
+  }
 
   MyForumsController(this._repository, this._ref)
     : super(const MyForumsState()) {
     refresh();
     _ref.listen<AuthState>(authStateProvider, (previous, next) {
       if (previous?.activeAccount?.uid != next.activeAccount?.uid) {
+        _accountRevision++;
+        _confirmedSigns.clear();
+        state = const MyForumsState();
         refresh();
       }
     });
   }
 
   Future<void> refresh() async {
+    _checkSignDay();
     final requestSequence = ++_refreshSequence;
     final account = _ref.read(authStateProvider).activeAccount;
     if (account == null || !account.isLogin) {
@@ -65,7 +92,16 @@ class MyForumsController extends StateNotifier<MyForumsState> {
           currentAccount?.uid != account.uid) {
         return;
       }
-      state = state.copyWith(forums: list, isLoading: false);
+      _checkSignDay();
+      state = state.copyWith(
+        forums: [
+          for (final forum in list)
+            _confirmedSigns.contains(forum.name)
+                ? forum.copyWith(isSigned: true)
+                : forum,
+        ],
+        isLoading: false,
+      );
     } catch (e) {
       if (requestSequence != _refreshSequence) return;
       state = state.copyWith(isLoading: false, errorMessage: '获取关注贴吧失败');
@@ -74,29 +110,42 @@ class MyForumsController extends StateNotifier<MyForumsState> {
 
   Future<bool> batchSign() async {
     final account = _ref.read(authStateProvider).activeAccount;
-    if (account == null) return false;
+    if (account == null || !account.isLogin || state.isSigning) return false;
+    _checkSignDay();
+    final revision = _accountRevision;
 
     state = state.copyWith(isSigning: true);
     try {
       final tbs = await _ref.read(authStateProvider.notifier).getValidTbs();
+      if (!mounted || revision != _accountRevision) return false;
       final ok = await _repository.batchSignIn(
         tbs: tbs.isNotEmpty ? tbs : account.tbs,
       );
+      if (!mounted || revision != _accountRevision) return false;
       if (ok) {
+        _checkSignDay();
         // 百度贴吧一键签到官方限制：仅支持签到用户等级大于等于 7 级的吧
         // 未满 7 级的吧保持原本状态，不盲目显示为已签到
         final updated = state.forums.map((f) {
           if (f.userLevel >= 7) {
+            _confirmedSigns.add(f.name);
             return f.copyWith(isSigned: true);
           }
           return f;
         }).toList();
-        state = state.copyWith(forums: updated, isSigning: false);
+        ++_refreshSequence;
+        state = state.copyWith(
+          forums: updated,
+          isSigning: false,
+          isLoading: false,
+        );
+        await refresh();
       } else {
         state = state.copyWith(isSigning: false);
       }
-      return ok;
+      return mounted && revision == _accountRevision && ok;
     } catch (_) {
+      if (!mounted || revision != _accountRevision) return false;
       state = state.copyWith(isSigning: false);
       return false;
     }
@@ -113,7 +162,7 @@ class MyForumsLayoutNotifier extends StateNotifier<bool> {
   final StorageService _storage;
 
   MyForumsLayoutNotifier(this._storage)
-      : super(_storage.getMyForumsSingleColumn());
+    : super(_storage.getMyForumsSingleColumn());
 
   Future<void> toggle() async {
     final next = !state;

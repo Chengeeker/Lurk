@@ -21,11 +21,13 @@ import '../../../feed/presentation/widgets/tieba_video_player_page.dart';
 class GalleryMediaItem {
   const GalleryMediaItem({
     required this.imageUrl,
+    this.previewUrl = '',
     this.isVideo = false,
     this.videoUrl = '',
   });
 
   final String imageUrl;
+  final String previewUrl;
   final bool isVideo;
   final String videoUrl;
 }
@@ -63,51 +65,65 @@ Widget imageGalleryHeroFlightShuttleBuilder(
   BuildContext toHeroContext,
 ) {
   final fromHero = fromHeroContext.widget as Hero;
-  final toHero = toHeroContext.widget as Hero;
-  if (flightDirection != HeroFlightDirection.pop) return toHero.child;
-
   final tag = fromHero.tag;
-  final target = toHeroContext.findRenderObject();
-  if (tag is! ImageGalleryHeroTag ||
-      !tag.thumbnailUsesCover ||
-      target is! RenderBox ||
-      !target.hasSize ||
-      target.size.width <= 0 ||
-      target.size.height <= 0) {
+  final targetRenderObject = toHeroContext.findRenderObject();
+  if (targetRenderObject is! RenderBox ||
+      !targetRenderObject.hasSize ||
+      targetRenderObject.size.width <= 0 ||
+      targetRenderObject.size.height <= 0) {
     return fromHero.child;
   }
 
-  final sourceGeometry = _HeroImageGeometry.capture(fromHeroContext);
-  final targetGeometry = _HeroImageGeometry.capture(toHeroContext);
-  if (sourceGeometry == null || targetGeometry == null) return fromHero.child;
-  return _HeroReturnImageMorph(
+  final source = _HeroImageGeometry.capture(fromHeroContext);
+  if (source == null) return fromHero.child;
+
+  final isPop = flightDirection == HeroFlightDirection.pop;
+  if (!isPop) {
+    toHeroContext
+        .findAncestorStateOfType<_ImageGalleryPageState>()
+        ?._retainOpeningPreview(source.image);
+  }
+  if (isPop && (tag is! ImageGalleryHeroTag || !tag.thumbnailUsesCover)) {
+    return fromHero.child;
+  }
+  final target = isPop
+      ? _HeroImageGeometry.capture(toHeroContext)
+      : _HeroImageGeometry.fitContain(source.image, targetRenderObject);
+  if (target == null) return fromHero.child;
+  return _HeroImageFlightMorph(
     animation: animation,
-    image: sourceGeometry.image.clone(),
-    source: sourceGeometry,
-    target: targetGeometry,
+    image: source.image.clone(),
+    source: source,
+    target: target,
+    reverse: isPop,
+    originalProvider: isPop
+        ? null
+        : toHeroContext
+              .findAncestorStateOfType<_ImageGalleryPageState>()
+              ?._originalProvider(),
   );
 }
 
+/// Snapshot the complete image plane, not just the fitted/cropped viewport.
+/// ExtendedImage has its own RenderBox (it is NOT a Flutter RenderImage).
 class _HeroImageGeometry {
-  const _HeroImageGeometry(this.image, this.rect, this.radius);
-
+  const _HeroImageGeometry(this.image, this.rect, this.radius, this.viewport);
   final ui.Image image;
   final Rect rect;
   final BorderRadius radius;
+  final Size viewport;
 
   static _HeroImageGeometry? capture(BuildContext context) {
     final root = context.findRenderObject();
     if (root is! RenderBox || !root.hasSize) return null;
-
     final direction = Directionality.of(context);
     _HeroImageGeometry? result;
-    var radius = BorderRadius.zero;
+    BorderRadius radius = BorderRadius.zero;
     void visit(RenderObject object) {
       if (result != null) return;
       if (object is RenderClipRRect) {
         radius = object.borderRadius.resolve(direction);
       }
-
       ui.Image? image;
       BoxFit? fit;
       AlignmentGeometry alignment = Alignment.center;
@@ -116,7 +132,10 @@ class _HeroImageGeometry {
         image = object.image;
         fit = object.fit;
         alignment = object.alignment;
+        // Already painted gesture geometry includes current zoom and pan.
         final gesture = object.gestureDetails;
+        // ExtendedImage stores these in the paint canvas coordinate space,
+        // including its paint offset. Normalize before mapping to the Hero.
         if (gesture?.destinationRect != null && gesture?.layoutRect != null) {
           gestureRect = gesture!.destinationRect!.shift(
             -gesture.layoutRect!.topLeft,
@@ -127,7 +146,6 @@ class _HeroImageGeometry {
         fit = object.fit;
         alignment = object.alignment;
       }
-
       if (image != null && object is RenderBox && object.hasSize) {
         final pixels = Size(image.width.toDouble(), image.height.toDouble());
         final align = alignment.resolve(direction);
@@ -140,18 +158,22 @@ class _HeroImageGeometry {
         final painted =
             gestureRect ??
             align.inscribe(fitted.destination, Offset.zero & object.size);
-        final scaleX = painted.width / crop.width;
-        final scaleY = painted.height / crop.height;
-        final fullImage = Rect.fromLTWH(
-          painted.left - crop.left * scaleX,
-          painted.top - crop.top * scaleY,
-          pixels.width * scaleX,
-          pixels.height * scaleY,
+        // Expand the cropped source back into the complete pixel plane so
+        // interpolation never stretches the image to the viewport aspect ratio.
+        final sx = painted.width / crop.width;
+        final sy = painted.height / crop.height;
+        final full = Rect.fromLTWH(
+          painted.left - crop.left * sx,
+          painted.top - crop.top * sy,
+          pixels.width * sx,
+          pixels.height * sy,
         );
+        final transform = object.getTransformTo(root);
         result = _HeroImageGeometry(
           image,
-          MatrixUtils.transformRect(object.getTransformTo(root), fullImage),
+          MatrixUtils.transformRect(transform, full),
           radius,
+          root.size,
         );
         return;
       }
@@ -161,76 +183,148 @@ class _HeroImageGeometry {
     visit(root);
     return result;
   }
+
+  static _HeroImageGeometry? fitContain(ui.Image image, RenderBox target) {
+    if (!target.hasSize || target.size.isEmpty) return null;
+    final pixels = Size(image.width.toDouble(), image.height.toDouble());
+    final fitted = applyBoxFit(BoxFit.contain, pixels, target.size).destination;
+    return _HeroImageGeometry(
+      image,
+      Alignment.center.inscribe(fitted, Offset.zero & target.size),
+      BorderRadius.zero,
+      target.size,
+    );
+  }
 }
 
-class _HeroReturnImageMorph extends StatefulWidget {
-  const _HeroReturnImageMorph({
+/// Freeze image geometry, then move its edges and the clipping viewport
+/// independently. Re-layout of a gesture image during flight changes its crop.
+class _HeroImageFlightMorph extends StatefulWidget {
+  const _HeroImageFlightMorph({
     required this.animation,
     required this.image,
     required this.source,
     required this.target,
+    required this.reverse,
+    this.originalProvider,
   });
 
   final Animation<double> animation;
   final ui.Image image;
   final _HeroImageGeometry source;
   final _HeroImageGeometry target;
+  final bool reverse;
+  final ImageProvider? originalProvider;
 
   @override
-  State<_HeroReturnImageMorph> createState() => _HeroReturnImageMorphState();
+  State<_HeroImageFlightMorph> createState() => _HeroImageFlightMorphState();
 }
 
-class _HeroReturnImageMorphState extends State<_HeroReturnImageMorph> {
+class _HeroImageFlightMorphState extends State<_HeroImageFlightMorph> {
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+  ui.Image? _original;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_stream != null || widget.originalProvider == null) return;
+    _stream = widget.originalProvider!.resolve(
+      createLocalImageConfiguration(context),
+    );
+    _listener = ImageStreamListener((info, synchronousCall) {
+      _stream!.removeListener(_listener!);
+      final image = info.image.clone();
+      info.dispose();
+      _original?.dispose();
+      if (synchronousCall) {
+        _original = image;
+      } else if (mounted) {
+        setState(() => _original = image);
+      } else {
+        image.dispose();
+      }
+    }, onError: (_, _) {});
+    _stream!.addListener(_listener!);
+  }
+
   @override
   void dispose() {
+    if (_listener != null) _stream?.removeListener(_listener!);
+    _original?.dispose();
     widget.image.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    key: const ValueKey('gallery-return-image-plane'),
-    painter: _HeroReturnPainter(
-      widget.image,
-      widget.animation,
-      widget.source,
-      widget.target,
+  Widget build(BuildContext context) => RepaintBoundary(
+    // Hero's overlay has no boundary; isolate its per-frame image repaint.
+    child: CustomPaint(
+      key: ValueKey(
+        widget.reverse
+            ? 'gallery-return-image-plane'
+            : 'gallery-image-flight-plane',
+      ),
+      painter: _HeroImageFlightPainter(
+        _original ?? widget.image,
+        widget.animation,
+        widget.source,
+        widget.target,
+        widget.reverse,
+      ),
+      child: const SizedBox.expand(),
     ),
-    child: const SizedBox.expand(),
   );
 }
 
-class _HeroReturnPainter extends CustomPainter {
-  _HeroReturnPainter(this.image, this.animation, this.source, this.target)
-    : super(repaint: animation);
-
+class _HeroImageFlightPainter extends CustomPainter {
+  _HeroImageFlightPainter(
+    this.image,
+    this.animation,
+    this.source,
+    this.target,
+    this.reverse,
+  ) : super(repaint: animation);
   final ui.Image image;
   final Animation<double> animation;
   final _HeroImageGeometry source;
   final _HeroImageGeometry target;
+  final bool reverse;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final progress = (1 - animation.value).clamp(0.0, 1.0);
-    final imageRect = Rect.lerp(source.rect, target.rect, progress)!;
-    final radius = BorderRadius.lerp(source.radius, target.radius, progress)!;
+    // Flutter reuses the shuttle on pop→push; its original animation can be stale.
+    final delta = Offset(
+      target.viewport.width - source.viewport.width,
+      target.viewport.height - source.viewport.height,
+    );
+    final distanceSquared = delta.distanceSquared;
+    final progress = distanceSquared > 0.001
+        ? ((size.width - source.viewport.width) * delta.dx +
+                  (size.height - source.viewport.height) * delta.dy) /
+              distanceSquared
+        : (reverse ? 1 - animation.value : animation.value);
+    final t = progress.clamp(0.0, 1.0);
+    final rect = Rect.lerp(source.rect, target.rect, t)!;
+    final radius = BorderRadius.lerp(source.radius, target.radius, t)!;
     canvas.save();
     canvas.clipRRect(radius.toRRect(Offset.zero & size));
     canvas.drawImageRect(
       image,
       Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-      imageRect,
+      rect,
       Paint()..filterQuality = FilterQuality.low,
     );
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _HeroReturnPainter oldDelegate) =>
+  bool shouldRepaint(covariant _HeroImageFlightPainter oldDelegate) =>
       oldDelegate.image != image ||
       oldDelegate.source != source ||
       oldDelegate.target != target ||
-      oldDelegate.animation != animation;
+      oldDelegate.animation != animation ||
+      oldDelegate.reverse != reverse;
 }
 
 class ImageGalleryHeroThumbnail extends StatelessWidget {
@@ -250,15 +344,29 @@ class ImageGalleryHeroThumbnail extends StatelessWidget {
   final bool thumbnailUsesCover;
 
   @override
-  Widget build(BuildContext context) => Hero(
-    tag: ImageGalleryHeroTag(
-      scope: scope,
-      index: index,
-      mediaIdentity: mediaIdentity,
-      thumbnailUsesCover: thumbnailUsesCover,
+  Widget build(BuildContext context) => Listener(
+    behavior: HitTestBehavior.opaque,
+    onPointerDown: (_) => precacheImage(
+      ExtendedNetworkImageProvider(
+        AppNetworkImage.safeUrl(mediaIdentity),
+        cache: true,
+        headers: {'User-Agent': TiebaConstants.defaultUserAgent},
+        printError: false,
+      ),
+      context,
+      onError: (_, _) {},
     ),
-    flightShuttleBuilder: imageGalleryHeroFlightShuttleBuilder,
-    child: child,
+    child: Hero(
+      tag: ImageGalleryHeroTag(
+        scope: scope,
+        index: index,
+        mediaIdentity: mediaIdentity,
+        thumbnailUsesCover: thumbnailUsesCover,
+      ),
+      createRectTween: (begin, end) => RectTween(begin: begin, end: end),
+      flightShuttleBuilder: imageGalleryHeroFlightShuttleBuilder,
+      child: child,
+    ),
   );
 }
 
@@ -340,6 +448,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
   bool _mainUserScrolling = false;
   int _thumbnailSyncEpoch = 0;
   final Expando<ExtendedImageGesture> _pagingImages = Expando();
+  ui.Image? _openingPreview;
   bool _showChrome = true;
   bool _routeTransitionComplete = false;
   bool _isReturning = false;
@@ -361,6 +470,44 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
   GalleryMediaItem _mediaAt(int index) =>
       widget.mediaItems?[index] ??
       GalleryMediaItem(imageUrl: widget.images[index]);
+
+  void _retainOpeningPreview(ui.Image image) {
+    if (_openingPreview != null) return;
+    // Retain source pixels when the flight ends before the original decodes.
+    _openingPreview = image.clone();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  ImageProvider _originalProvider() => ExtendedNetworkImageProvider(
+    AppNetworkImage.safeUrl(_mediaAt(widget.initialIndex).imageUrl),
+    cache: true,
+    headers: {'User-Agent': TiebaConstants.defaultUserAgent},
+    printError: false,
+  );
+
+  Widget? _imagePreview(int index) {
+    if (index == widget.initialIndex && _openingPreview != null) {
+      return RawImage(
+        key: const ValueKey('gallery-opening-preview'),
+        image: _openingPreview,
+        fit: BoxFit.contain,
+      );
+    }
+    final item = _mediaAt(index);
+    final url = AppNetworkImage.safeUrl(item.previewUrl);
+    if (url.isEmpty || url == AppNetworkImage.safeUrl(item.imageUrl)) {
+      return null;
+    }
+    return ExtendedImage.network(
+      url,
+      key: ValueKey('gallery-loading-preview-$index'),
+      fit: BoxFit.contain,
+      cache: true,
+      headers: {'User-Agent': TiebaConstants.defaultUserAgent},
+    );
+  }
 
   double get _thumbnailBottom =>
       _thumbnailScrollBottom ??
@@ -399,13 +546,15 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
       for (final index in [_currentIndex + 1, _currentIndex - 1]) {
         if (index < 0 ||
             index >= widget.images.length ||
-            _mediaAt(index).isVideo)
+            _mediaAt(index).isVideo) {
           continue;
+        }
         final url = AppNetworkImage.safeUrl(_mediaAt(index).imageUrl);
         if (url.isEmpty ||
             _preloadingImageUrls.length >= 2 ||
-            !_preloadingImageUrls.add(url))
+            !_preloadingImageUrls.add(url)) {
           continue;
+        }
         assert(_preloadingImageUrls.length <= 2);
         unawaited(
           precacheImage(
@@ -453,6 +602,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
 
   @override
   void dispose() {
+    _openingPreview?.dispose();
     _thumbnailSyncEpoch++;
     _preloadTimer?.cancel();
     _cancelPendingGalleryTap();
@@ -500,8 +650,9 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
     _doubleTapListener = () {
       if (!mounted ||
           pageIndex != _currentIndex ||
-          generation != _zoomGeneration)
+          generation != _zoomGeneration) {
         return;
+      }
       state.handleDoubleTap(
         scale: _doubleTapAnimation!.value,
         doubleTapPosition: pointerPosition,
@@ -524,6 +675,7 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
           index: index,
           mediaIdentity: widget.images[index],
         ),
+        createRectTween: (begin, end) => RectTween(begin: begin, end: end),
         flightShuttleBuilder: imageGalleryHeroFlightShuttleBuilder,
         child: child,
       ),
@@ -982,6 +1134,8 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
                     loadStateChanged: (state) {
                       switch (state.extendedImageLoadState) {
                         case LoadState.loading:
+                          final preview = _imagePreview(index);
+                          if (preview != null) return preview;
                           return const Center(
                             child: SizedBox(
                               width: 32,
@@ -995,46 +1149,55 @@ class _ImageGalleryPageState extends ConsumerState<ImageGalleryPage>
                             ),
                           );
                         case LoadState.failed:
-                          return Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.broken_image_rounded,
-                                  size: 40,
-                                  color: Colors.white54,
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  '图片加载失败',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                OutlinedButton.icon(
-                                  onPressed: () => state.reLoadImage(),
-                                  icon: const Icon(
-                                    Icons.refresh_rounded,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                  label: const Text(
-                                    '点击重试',
-                                    style: TextStyle(color: Colors.white),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(
-                                      color: Colors.white38,
+                          return Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (_imagePreview(index) case final preview?)
+                                preview,
+                              Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.broken_image_rounded,
+                                      size: 40,
+                                      color: Colors.white54,
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
+                                    const SizedBox(height: 8),
+                                    const Text(
+                                      '图片加载失败',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(height: 12),
+                                    OutlinedButton.icon(
+                                      onPressed: () => state.reLoadImage(),
+                                      icon: const Icon(
+                                        Icons.refresh_rounded,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
+                                      label: const Text(
+                                        '点击重试',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        side: const BorderSide(
+                                          color: Colors.white38,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           );
                         case LoadState.completed:
                           return _pagingImages[state

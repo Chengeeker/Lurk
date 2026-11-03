@@ -35,11 +35,7 @@ class HabitSettingsPage extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     _tabTitles[index],
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: isSelected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+                    style: AppSectionCard.itemTitleStyle(context).copyWith(
                       color: isSelected
                           ? Theme.of(context).colorScheme.primary
                           : null,
@@ -91,11 +87,7 @@ class HabitSettingsPage extends ConsumerWidget {
                     children: [
                       Text(
                         _imageModes[index],
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                        style: AppSectionCard.itemTitleStyle(context).copyWith(
                           color: isSelected
                               ? Theme.of(context).colorScheme.primary
                               : null,
@@ -154,11 +146,7 @@ class HabitSettingsPage extends ConsumerWidget {
                     children: [
                       Text(
                         _forumSortTitles[index],
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: isSelected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                        style: AppSectionCard.itemTitleStyle(context).copyWith(
                           color: isSelected
                               ? Theme.of(context).colorScheme.primary
                               : null,
@@ -232,7 +220,7 @@ class HabitSettingsPage extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            padding: const EdgeInsetsDirectional.only(start: 16, bottom: 8),
             child: Text(
               "启动与偏好",
               style: TextStyle(
@@ -253,7 +241,6 @@ class HabitSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     "启动首选页",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
                     "当前首选：$initialTabName",
@@ -266,11 +253,6 @@ class HabitSettingsPage extends ConsumerWidget {
                     ref,
                   ),
                 ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
-                ),
                 ListTile(
                   leading: Icon(
                     Icons.photo_filter_rounded,
@@ -278,7 +260,6 @@ class HabitSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     "图片加载设置",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
                     "当前模式：$imageModeName",
@@ -291,16 +272,10 @@ class HabitSettingsPage extends ConsumerWidget {
                     ref,
                   ),
                 ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
-                ),
                 ListTile(
                   leading: Icon(Icons.sort_rounded, color: colorScheme.onSurfaceVariant),
                   title: const Text(
                     "吧默认排序方式",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
                     "当前排序：$forumSortName",
@@ -313,11 +288,6 @@ class HabitSettingsPage extends ConsumerWidget {
                     ref,
                   ),
                 ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
-                ),
                 SwitchListTile(
                   secondary: Icon(
                     Icons.history_toggle_off_rounded,
@@ -325,7 +295,6 @@ class HabitSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     "不保存浏览记录",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   value: habitState.doNotSaveHistory,
                   onChanged: (val) {
@@ -337,7 +306,7 @@ class HabitSettingsPage extends ConsumerWidget {
           ),
           const SizedBox(height: 18),
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            padding: const EdgeInsetsDirectional.only(start: 16, bottom: 8),
             child: Text(
               "浏览与交互偏好",
               style: TextStyle(
@@ -358,17 +327,11 @@ class HabitSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     "自动加载更多",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   value: habitState.autoLoadMore,
                   onChanged: (val) {
                     habitNotifier.setAutoLoadMore(val);
                   },
-                ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
                 ),
                 SwitchListTile(
                   secondary: Icon(
@@ -377,17 +340,11 @@ class HabitSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     "双击顶栏返回顶部",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   value: habitState.doubleTapTop,
                   onChanged: (val) {
                     habitNotifier.setDoubleTapTop(val);
                   },
-                ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
                 ),
                 SwitchListTile(
                   secondary: Icon(
@@ -396,17 +353,11 @@ class HabitSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     "看图优先加载高清原图",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   value: habitState.showOriginalImg,
                   onChanged: (val) {
                     habitNotifier.setShowOriginalImg(val);
                   },
-                ),
-                Divider(
-                  height: 1,
-                  indent: 56,
-                  color: theme.dividerColor.withValues(alpha: 0.1),
                 ),
                 SwitchListTile(
                   secondary: Icon(
@@ -415,7 +366,6 @@ class HabitSettingsPage extends ConsumerWidget {
                   ),
                   title: const Text(
                     "双击底栏快速刷新",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   value: habitState.doubleTapFeedRefresh,
                   onChanged: (val) {

@@ -85,9 +85,9 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
 
                 // Option 0: Pictures/Lurk/
                 ListTile(
-                  title: const Text(
+                  title: Text(
                     "默认路径",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: AppSectionCard.itemTitleStyle(ctx),
                   ),
                   subtitle: const Text(
                     "Pictures/Lurk/",
@@ -123,9 +123,9 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
 
                 // Option 1: Pictures/Lurk/自己的用户昵称
                 ListTile(
-                  title: const Text(
+                  title: Text(
                     "按本人昵称前缀归类",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: AppSectionCard.itemTitleStyle(ctx),
                   ),
                   subtitle: Text(
                     "Pictures/Lurk/$myNickname/",
@@ -161,9 +161,9 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
 
                 // Option 2: Pictures/Lurk/该贴发布用户昵称
                 ListTile(
-                  title: const Text(
+                  title: Text(
                     "按楼主昵称前缀归类",
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: AppSectionCard.itemTitleStyle(ctx),
                   ),
                   subtitle: const Text(
                     "Pictures/Lurk/该贴发布用户昵称/",
@@ -232,7 +232,6 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
                   ),
                   title: const Text(
                     "图片存储路径",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
                     _getPathSummary(imagePathType, myNickname, isVideo: false),
@@ -246,7 +245,6 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
                     isVideo: false,
                   ),
                 ),
-                const Divider(height: 1, indent: 56),
                 ListTile(
                   leading: Icon(
                     Icons.video_library_outlined,
@@ -254,7 +252,6 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
                   ),
                   title: const Text(
                     "视频存储路径",
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
                     _getPathSummary(videoPathType, myNickname, isVideo: true),

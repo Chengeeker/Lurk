@@ -511,7 +511,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage> {
             // 动态分组标题
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                padding: const EdgeInsetsDirectional.fromSTEB(24, 12, 24, 6),
                 child: Text(
                   isSelf ? "我的发帖与动态" : "TA 的发帖与动态",
                   style: const TextStyle(

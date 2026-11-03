@@ -306,7 +306,7 @@ class _HistoryViewState extends ConsumerState<HistoryView>
       itemCount: _threadHistory.length,
       itemBuilder: (context, index) {
         final thread = _threadHistory[index];
-        return TiebaCard(thread: thread);
+        return TiebaCard(thread: thread, recoverSavedPreview: true);
       },
     );
   }

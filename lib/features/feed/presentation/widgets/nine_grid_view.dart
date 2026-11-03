@@ -67,6 +67,9 @@ class _NineGridViewState extends State<NineGridView> {
                       : media.thumbUrl));
       return GalleryMediaItem(
         imageUrl: imageUrl,
+        previewUrl: media.bigCdnUrl.isNotEmpty
+            ? media.bigCdnUrl
+            : (media.thumbUrl.isNotEmpty ? media.thumbUrl : imageUrl),
         isVideo: isVideo,
         videoUrl: widget._resolveVideoUrl(media),
       );
@@ -118,6 +121,8 @@ class _NineGridViewState extends State<NineGridView> {
       );
 
       return GestureDetector(
+        // Keep the image target hittable while Hero replaces it with a placeholder.
+        behavior: HitTestBehavior.opaque,
         onTap: () {
           HapticFeedbackUtil.light();
           ImageGalleryPage.open(
@@ -162,6 +167,7 @@ class _NineGridViewState extends State<NineGridView> {
         final isVideo = widget._isVideoMedia(media);
 
         return GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () {
             HapticFeedbackUtil.light();
             ImageGalleryPage.open(

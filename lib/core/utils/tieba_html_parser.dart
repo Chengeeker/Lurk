@@ -21,9 +21,10 @@ class TiebaHtmlParser {
     caseSensitive: false,
   );
 
-  static String toPlainText(String raw) {
+  static String toPlainText(String raw, {bool trim = true}) {
     if (raw.isEmpty || !raw.contains('<')) {
-      return _decodeEntities(raw).trim();
+      final text = _decodeEntities(raw);
+      return trim ? text.trim() : text;
     }
 
     var text = raw.replaceAll(_scriptOrStyle, '');
@@ -35,7 +36,7 @@ class TiebaHtmlParser {
     text = _decodeEntities(text);
     text = text.replaceAll(RegExp(r'[ \t]+\n'), '\n');
     text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
-    return text.trim();
+    return trim ? text.trim() : text;
   }
 
   static String _imageToken(String tag) {

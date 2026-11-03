@@ -80,7 +80,7 @@ class _DisplayModeSettingsPageState extends ConsumerState<DisplayModeSettingsPag
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 16),
+                    padding: const EdgeInsetsDirectional.only(start: 16, bottom: 16),
                     child: Text(
                       '没有生效？重启app试试',
                       style: TextStyle(
@@ -98,18 +98,12 @@ class _DisplayModeSettingsPageState extends ConsumerState<DisplayModeSettingsPag
                           modeId: 0,
                           colorScheme: colorScheme,
                         ),
-                        for (var i = 0; i < _modes.length; i++) ...[
-                          Divider(
-                            height: 1,
-                            thickness: 0.5,
-                            color: theme.dividerColor.withValues(alpha: 0.06),
-                          ),
+                        for (var i = 0; i < _modes.length; i++)
                           _buildModeTile(
                             title: '#${_modes[i].id} ${_modes[i].width}x${_modes[i].height} @ ${_modes[i].refreshRate.toInt()}Hz',
                             modeId: _modes[i].id,
                             colorScheme: colorScheme,
                           ),
-                        ],
                       ],
                     ),
                   ),
@@ -136,9 +130,8 @@ class _DisplayModeSettingsPageState extends ConsumerState<DisplayModeSettingsPag
             Expanded(
               child: Text(
                 title,
-                style: TextStyle(
-                  fontSize: 15.5,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                style: AppSectionCard.itemTitleStyle(context).copyWith(
+                  color: isSelected ? theme.colorScheme.primary : null,
                 ),
               ),
             ),

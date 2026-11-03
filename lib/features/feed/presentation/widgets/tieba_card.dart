@@ -4,6 +4,7 @@ import "package:flutter_riverpod/flutter_riverpod.dart";
 import "../../../../core/auth/auth_provider.dart";
 import "../../../../core/providers/thread_agree_provider.dart";
 import "../../../../core/services/share_service.dart";
+import "../../../../core/services/saved_thread_preview_service.dart";
 import "../../../../core/utils/app_toast.dart";
 import "../../../../core/utils/haptic_feedback_util.dart";
 import "../../../../core/utils/spring_page_route.dart";
@@ -22,8 +23,14 @@ import "nine_grid_view.dart";
 class TiebaCard extends ConsumerStatefulWidget {
   final TiebaThreadModel thread;
   final ValueChanged<bool>? onAgreeToggle;
+  final bool recoverSavedPreview;
 
-  const TiebaCard({super.key, required this.thread, this.onAgreeToggle});
+  const TiebaCard({
+    super.key,
+    required this.thread,
+    this.onAgreeToggle,
+    this.recoverSavedPreview = false,
+  });
 
   @override
   ConsumerState<TiebaCard> createState() => _TiebaCardState();
@@ -33,10 +40,30 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
   late bool _isAgreed;
   late int _agreeNum;
   bool _isProcessing = false;
+  late TiebaThreadModel _previewThread;
+  int _previewGeneration = 0;
+
+  void _recoverPreview() {
+    final generation = ++_previewGeneration;
+    if (!widget.recoverSavedPreview) return;
+    Future.microtask(() async {
+      if (!mounted || generation != _previewGeneration) return;
+      final recovered = await ref
+          .read(savedThreadPreviewServiceProvider)
+          .recover(widget.thread);
+      if (mounted &&
+          generation == _previewGeneration &&
+          !identical(recovered, widget.thread)) {
+        setState(() => _previewThread = recovered);
+      }
+    });
+  }
 
   @override
   void initState() {
     super.initState();
+    _previewThread = widget.thread;
+    _recoverPreview();
     _isAgreed = widget.thread.isAgreed;
     _agreeNum = widget.thread.agreeNum;
   }
@@ -44,6 +71,11 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
   @override
   void didUpdateWidget(covariant TiebaCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.thread, widget.thread) ||
+        oldWidget.recoverSavedPreview != widget.recoverSavedPreview) {
+      _previewThread = widget.thread;
+      _recoverPreview();
+    }
     if (oldWidget.thread.id != widget.thread.id ||
         oldWidget.thread.isAgreed != widget.thread.isAgreed ||
         oldWidget.thread.agreeNum != widget.thread.agreeNum) {
@@ -175,7 +207,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
 
   @override
   Widget build(BuildContext context) {
-    final thread = widget.thread;
+    final thread = _previewThread;
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final habitState = ref.watch(habitSettingsProvider);
@@ -306,22 +338,34 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                 ),
 
               // 3. 贴子正文摘要
-              if (thread.contentSnippet.isNotEmpty &&
-                  thread.contentSnippet != thread.title)
+              if ((thread.contentSnippet.isNotEmpty &&
+                      thread.contentSnippet != thread.title) ||
+                  thread.snippetSegments.any(
+                    (segment) => segment.url?.isNotEmpty == true,
+                  ))
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: RichText(
                     text: TextSpan(
-                      children: TiebaTextParser.parseRichText(
-                        context,
-                        thread.contentSnippet,
-                        collapseWhitespace: thread.mediaList.isNotEmpty,
-                        baseStyle: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13.5,
-                          height: 1.45,
-                        ),
-                      ),
+                      children: [
+                        for (final segment
+                            in thread.snippetSegments.isEmpty
+                                ? [ThreadSnippetSegment(thread.contentSnippet)]
+                                : thread.snippetSegments)
+                          ...TiebaTextParser.parseRichText(
+                            context,
+                            segment.text,
+                            linkUrl: segment.url,
+                            useLinkNames: true,
+                            trimWhitespace: thread.snippetSegments.isEmpty,
+                            collapseWhitespace: thread.mediaList.isNotEmpty,
+                            baseStyle: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 13.5,
+                              height: 1.45,
+                            ),
+                          ),
+                      ],
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,

@@ -379,7 +379,7 @@ class _BookmarksViewState extends ConsumerState<BookmarksView> {
                       ),
                     ),
                     onDismissed: (_) => _removeBookmark(thread),
-                    child: TiebaCard(thread: thread),
+                    child: TiebaCard(thread: thread, recoverSavedPreview: true),
                   );
                 },
               ),

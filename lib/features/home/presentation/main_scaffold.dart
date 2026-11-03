@@ -608,10 +608,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar> {
                       indicatorSettings: LiquidGlassSettings(
                         glassColor: isLightMode
                             ? const Color(0x18000000)
-                            : const Color(0x00FFFFFF),
-                        bodyMode: isLightMode
-                            ? GlassBodyMode.clear
-                            : GlassBodyMode.adaptive,
+                            : const Color(0x26FFFFFF),
+                        bodyMode: GlassBodyMode.clear,
                         refractiveIndex: 1.18,
                         chromaticAberration: 0.025,
                         rimShade: isLightMode ? 0.12 : 0,
@@ -623,7 +621,7 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar> {
                       enableBlend: true,
                       indicatorColor: isLightMode
                           ? const Color(0x26000000)
-                          : const Color(0x66000000),
+                          : const Color(0x26FFFFFF),
                       interactionGlowColor: const Color(0x20FFFFFF),
                       indicatorPinchStrength: _isJellyDragging ? 0.7 : 0.0,
                       indicatorExpansion: _isJellyDragging
@@ -634,12 +632,8 @@ class _LiquidGlassNavigationBarState extends State<_LiquidGlassNavigationBar> {
                           : EdgeInsets.zero,
                       innerBlur: 6,
                       pressScale: 1.06,
-                      selectedIconColor: isLightMode
-                          ? colorScheme.primary
-                          : Colors.white,
-                      selectedLabelColor: isLightMode
-                          ? colorScheme.primary
-                          : Colors.white,
+                      selectedIconColor: colorScheme.primary,
+                      selectedLabelColor: colorScheme.primary,
                       unselectedIconColor: isLightMode
                           ? colorScheme.onSurfaceVariant
                           : Colors.white,

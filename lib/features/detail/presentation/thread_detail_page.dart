@@ -954,11 +954,13 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                           size: 20.0,
                         ),
                       );
-                    } else if (seg.text.isNotEmpty) {
+                    } else if (seg.text.isNotEmpty ||
+                        (seg.type == 1 && seg.url?.isNotEmpty == true)) {
                       spans.addAll(
                         TiebaTextParser.parseRichText(
                           context,
                           seg.text,
+                          linkUrl: seg.type == 1 ? seg.url : null,
                           baseStyle: TextStyle(
                             color: colorScheme.onSurface,
                             fontSize: 15,
@@ -1010,6 +1012,7 @@ class _ThreadDetailPageState extends ConsumerState<ThreadDetailPage> {
                         heroScope: _imageGalleryHeroScope,
                       );
                     },
+                    behavior: HitTestBehavior.opaque,
                     child: ImageGalleryHeroThumbnail(
                       scope: _imageGalleryHeroScope,
                       index: i,

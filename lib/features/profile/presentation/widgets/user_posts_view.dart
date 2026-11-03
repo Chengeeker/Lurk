@@ -140,7 +140,7 @@ class _UserPostsViewState extends ConsumerState<UserPostsView> {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsetsDirectional.symmetric(horizontal: 24, vertical: 8),
                 child: Text(isTargetUser ? 'TA 的发帖与动态' : '我的发帖与回帖', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               ),
             ),

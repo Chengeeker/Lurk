@@ -139,11 +139,9 @@ class _SubFloorSheetState extends ConsumerState<SubFloorSheet> {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         final colorScheme = Theme.of(ctx).colorScheme;
-        return Container(
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
+        return Material(
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: SafeArea(
             top: false,
             child: Column(
@@ -305,6 +303,8 @@ class _SubFloorSheetState extends ConsumerState<SubFloorSheet> {
                             final sp = _subPosts[index];
                             final timeStr = _formatRelativeTime(sp.time);
                             return InkWell(
+                              enableFeedback: false,
+                              splashFactory: InkSplash.splashFactory,
                               borderRadius: BorderRadius.circular(12),
                               onLongPress: () {
                                 HapticFeedbackUtil.light();
@@ -381,6 +381,7 @@ class _SubFloorSheetState extends ConsumerState<SubFloorSheet> {
                                                   children: TiebaTextParser.parseRichText(
                                                     context,
                                                     seg.text,
+                                                    linkUrl: seg.type == 1 ? seg.url : null,
                                                     baseStyle: TextStyle(
                                                       color: colorScheme.onSurface,
                                                       fontSize: 13,

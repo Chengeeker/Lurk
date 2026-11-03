@@ -126,7 +126,7 @@ class _CacheManagementPageState extends ConsumerState<CacheManagementPage> {
               children: [
                 for (final (label, value) in options)
                   RadioListTile<int>(
-                    title: Text(label),
+                    title: Text(label, style: AppSectionCard.itemTitleStyle(dialogContext)),
                     value: value,
                     dense: true,
                   ),
@@ -233,7 +233,6 @@ class _CacheManagementPageState extends ConsumerState<CacheManagementPage> {
                   ),
                   onTap: _selectThreshold,
                 ),
-                const Divider(height: 1, indent: 56),
                 SwitchListTile(
                   secondary: Icon(
                     Icons.exit_to_app_rounded,
@@ -427,9 +426,12 @@ class _CacheManagementPageState extends ConsumerState<CacheManagementPage> {
     ),
   );
 
-  Widget _sectionTitle(BuildContext context, String title) => Text(
-    title,
-    style: Theme.of(context).textTheme.titleSmall
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+  Widget _sectionTitle(BuildContext context, String title) => Padding(
+    padding: const EdgeInsetsDirectional.symmetric(horizontal: 16),
+    child: Text(
+      title,
+      style: Theme.of(context).textTheme.titleSmall
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    ),
   );
 }

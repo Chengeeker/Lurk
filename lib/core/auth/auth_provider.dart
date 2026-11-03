@@ -41,7 +41,7 @@ class AuthState {
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  static const _secureAccountsKey = 'lurk_auth_accounts_v1';
+  static const _secureAccountsKey = StorageService.secureAccountsKey;
   final StorageService _storage;
   final FlutterSecureStorage _secureStorage;
 

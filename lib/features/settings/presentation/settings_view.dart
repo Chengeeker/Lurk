@@ -11,6 +11,7 @@ import '../../../core/utils/app_toast.dart';
 import '../../../core/utils/haptic_feedback_util.dart';
 import '../../../core/utils/spring_page_route.dart';
 import '../../../core/widgets/app_section_card.dart';
+import '../../../core/widgets/lurk_frosted_app_bar.dart';
 import '../../auth/presentation/login_page.dart';
 import '../../profile/data/profile_repository.dart';
 import 'block_settings_page.dart';
@@ -19,6 +20,7 @@ import 'habit_settings_page.dart';
 import 'personalization_settings_page.dart';
 import 'providers/habit_settings_provider.dart';
 import 'storage_settings_page.dart';
+import 'webdav_backup_page.dart';
 
 class SettingsView extends ConsumerWidget {
   const SettingsView({super.key});
@@ -483,28 +485,25 @@ class SettingsView extends ConsumerWidget {
       fontSize: 15,
       fontWeight: FontWeight.w600,
     );
-    final settingTitleStyle = theme.textTheme.titleMedium?.copyWith(
-      color: colorScheme.onSurface,
-      fontSize: 16,
-      fontWeight: FontWeight.w500,
-    );
+    final settingTitleStyle = AppSectionCard.itemTitleStyle(context);
     final settingDescriptionStyle = theme.textTheme.bodyMedium?.copyWith(
       color: colorScheme.onSurfaceVariant,
       fontSize: 13,
     );
-    final dividerColor = colorScheme.outlineVariant.withValues(alpha: 0.5);
 
     return Scaffold(
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          MediaQuery.paddingOf(context).top + 12,
-          16,
-          12,
+      appBar: const LurkFrostedAppBar(
+        title: Text(
+          '设置',
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
         ),
+        centerTitle: false,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            padding: const EdgeInsetsDirectional.only(start: 16, bottom: 12),
             child: Text('偏好与功能', style: sectionTitleStyle),
           ),
           AppSectionCard(
@@ -526,11 +525,6 @@ class SettingsView extends ConsumerWidget {
                     );
                   },
                 ),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: dividerColor,
-                ),
                 ListTile(
                   leading: Icon(
                     Icons.block_rounded,
@@ -544,11 +538,6 @@ class SettingsView extends ConsumerWidget {
                         .push(SpringPageRoute(page: const BlockSettingsPage()));
                   },
                 ),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: dividerColor,
-                ),
                 ListTile(
                   leading: Icon(
                     Icons.tune_rounded,
@@ -561,11 +550,6 @@ class SettingsView extends ConsumerWidget {
                     Navigator.of(context)
                         .push(SpringPageRoute(page: const HabitSettingsPage()));
                   },
-                ),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: dividerColor,
                 ),
                 ListTile(
                   leading: Icon(
@@ -581,16 +565,17 @@ class SettingsView extends ConsumerWidget {
                     ).push(SpringPageRoute(page: const StorageSettingsPage()));
                   },
                 ),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: dividerColor,
-                ),
                 ListTile(
                   leading: Icon(
-                    Icons.cleaning_services_outlined,
+                    Icons.cloud_sync_rounded,
                     color: colorScheme.onSurfaceVariant,
                   ),
+                  title: Text('WebDAV备份', style: settingTitleStyle),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).push(SpringPageRoute(page: const WebDavBackupPage())),
+                ),
+                ListTile(
+                  leading: Icon(Icons.cleaning_services_outlined, color: colorScheme.onSurfaceVariant),
                   title: Text('缓存管理', style: settingTitleStyle),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () {
@@ -599,11 +584,6 @@ class SettingsView extends ConsumerWidget {
                       SpringPageRoute(page: const CacheManagementPage()),
                     );
                   },
-                ),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: dividerColor,
                 ),
                 SwitchListTile(
                   secondary: Icon(
@@ -622,7 +602,7 @@ class SettingsView extends ConsumerWidget {
           const SizedBox(height: 32),
 
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            padding: const EdgeInsetsDirectional.only(start: 16, bottom: 12),
             child: Text('账号设置', style: sectionTitleStyle),
           ),
           AppSectionCard(
@@ -662,11 +642,6 @@ class SettingsView extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: dividerColor,
-                  ),
                   ListTile(
                     leading: Icon(
                       Icons.key_rounded,
@@ -678,11 +653,6 @@ class SettingsView extends ConsumerWidget {
                       context,
                       authState.activeAccount!,
                     ),
-                  ),
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: dividerColor,
                   ),
                   ListTile(
                     leading: Icon(
@@ -719,7 +689,7 @@ class SettingsView extends ConsumerWidget {
           const SizedBox(height: 32),
 
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 12),
+            padding: const EdgeInsetsDirectional.only(start: 16, bottom: 12),
             child: Text('关于与支持', style: sectionTitleStyle),
           ),
           AppSectionCard(

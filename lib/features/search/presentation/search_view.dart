@@ -439,7 +439,7 @@ class _SearchViewState extends ConsumerState<SearchView>
       children: [
         if (exact != null) ...[
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            padding: const EdgeInsetsDirectional.only(start: 12, bottom: 8),
             child: Row(
               children: [
                 Icon(Icons.verified_rounded,
@@ -461,7 +461,7 @@ class _SearchViewState extends ConsumerState<SearchView>
         ],
         if (fuzzy.isNotEmpty) ...[
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            padding: const EdgeInsetsDirectional.only(start: 12, bottom: 8),
             child: Text(
               "相关贴吧",
               style: TextStyle(
@@ -695,7 +695,7 @@ class _SearchViewState extends ConsumerState<SearchView>
       children: [
         if (exact != null) ...[
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            padding: const EdgeInsetsDirectional.only(start: 12, bottom: 8),
             child: Row(
               children: [
                 Icon(Icons.verified_rounded,
@@ -717,7 +717,7 @@ class _SearchViewState extends ConsumerState<SearchView>
         ],
         if (fuzzy.isNotEmpty) ...[
           Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 8),
+            padding: const EdgeInsetsDirectional.only(start: 12, bottom: 8),
             child: Text(
               "相关用户",
               style: TextStyle(

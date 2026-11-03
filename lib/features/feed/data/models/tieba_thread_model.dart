@@ -400,6 +400,18 @@ class TiebaVideoInfoModel {
   }
 }
 
+class ThreadSnippetSegment {
+  const ThreadSnippetSegment(this.text, {this.url});
+  final String text;
+  final String? url;
+
+  Map<String, dynamic> toJson() => {
+    'type': url == null ? 0 : 1,
+    'text': text,
+    if (url != null) 'link': url,
+  };
+}
+
 class TiebaThreadModel {
   final String id;
   final String title;
@@ -407,6 +419,7 @@ class TiebaThreadModel {
   final String fid;
   final String forumAvatar;
   final String contentSnippet;
+  final List<ThreadSnippetSegment> snippetSegments;
   final int replyNum;
   final int agreeNum;
   final bool isAgreed;
@@ -424,6 +437,7 @@ class TiebaThreadModel {
     this.fid = '',
     this.forumAvatar = '',
     this.contentSnippet = '',
+    this.snippetSegments = const [],
     this.replyNum = 0,
     this.agreeNum = 0,
     this.isAgreed = false,
@@ -442,9 +456,11 @@ class TiebaThreadModel {
       'fname': fname,
       'fid': fid,
       'forum_avatar': forumAvatar,
-      'content': [
-        {'text': contentSnippet},
-      ],
+      'content': snippetSegments.isEmpty
+          ? [
+              {'text': contentSnippet},
+            ]
+          : snippetSegments.map((segment) => segment.toJson()).toList(),
       'reply_num': replyNum,
       'agree_num': agreeNum,
       'agree': {'has_agree': isAgreed ? 1 : 0, 'agree_num': agreeNum},
@@ -468,6 +484,7 @@ class TiebaThreadModel {
     String? fid,
     String? forumAvatar,
     String? contentSnippet,
+    List<ThreadSnippetSegment>? snippetSegments,
     int? replyNum,
     int? agreeNum,
     bool? isAgreed,
@@ -484,6 +501,11 @@ class TiebaThreadModel {
       fid: fid ?? this.fid,
       forumAvatar: forumAvatar ?? this.forumAvatar,
       contentSnippet: contentSnippet ?? this.contentSnippet,
+      snippetSegments:
+          snippetSegments ??
+          (contentSnippet == null || contentSnippet == this.contentSnippet
+              ? this.snippetSegments
+              : const []),
       replyNum: replyNum ?? this.replyNum,
       agreeNum: agreeNum ?? this.agreeNum,
       isAgreed: isAgreed ?? this.isAgreed,
@@ -527,26 +549,37 @@ class TiebaThreadModel {
       }
     }
 
+    final snippetSegments = <ThreadSnippetSegment>[];
     String extractSnippetFromList(List list) {
       final buffer = StringBuffer();
       for (var item in list) {
+        final piece = StringBuffer();
+        String? url;
         if (item is Map) {
           final type = int.tryParse(item['type']?.toString() ?? '0') ?? 0;
           if (type == 2) {
             final c = item['c']?.toString() ?? '';
             if (c.isNotEmpty) {
-              buffer.write(c.startsWith('[') && c.endsWith(']') ? c : '[$c]');
+              piece.write(c.startsWith('[') && c.endsWith(']') ? c : '[$c]');
             } else {
               final text = item['text']?.toString() ?? '';
               if (text.isNotEmpty) {
-                buffer.write(TiebaEmoticonUtil.getEmoticonName(text));
+                piece.write(TiebaEmoticonUtil.getEmoticonName(text));
               }
             }
           } else if (type == 0 || type == 1 || type == 4) {
-            buffer.write(item['text']?.toString() ?? '');
+            piece.write(item['text']?.toString() ?? '');
+            if (type == 1) {
+              url = (item['link'] ?? item['url'])?.toString();
+            }
           }
         } else if (item is String) {
-          buffer.write(item);
+          piece.write(item);
+        }
+        final text = piece.toString();
+        buffer.write(text);
+        if (text.isNotEmpty || url?.isNotEmpty == true) {
+          snippetSegments.add(ThreadSnippetSegment(text, url: url));
         }
       }
       return TiebaHtmlParser.toPlainText(buffer.toString());
@@ -662,6 +695,10 @@ class TiebaThreadModel {
       forumAvatar:
           json['forum_avatar']?.toString() ?? json['avatar']?.toString() ?? '',
       contentSnippet: snippet,
+      snippetSegments:
+          snippetSegments.any((segment) => segment.url?.isNotEmpty == true)
+          ? snippetSegments
+          : const [],
       replyNum:
           int.tryParse(
             json['reply_num']?.toString() ?? json['count']?.toString() ?? '0',
