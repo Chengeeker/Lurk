@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lurk/core/auth/auth_provider.dart';
 import 'package:lurk/core/network/tieba_dio_client.dart';
 import 'package:lurk/core/storage/storage_service.dart';
+import 'package:lurk/core/theme/app_theme.dart';
 import 'package:lurk/core/utils/haptic_feedback_util.dart';
 import 'package:lurk/features/detail/data/detail_repository.dart';
 import 'package:lurk/features/detail/data/models/tieba_post_model.dart';
@@ -94,7 +95,7 @@ void main() {
               ],
               child: MaterialApp(
                 navigatorKey: navigator,
-                theme: ThemeData(splashFactory: const HapticSplashFactory()),
+                theme: AppTheme.lightTheme(),
                 home: Scaffold(
                   body: nested
                       ? const SubFloorSheet(

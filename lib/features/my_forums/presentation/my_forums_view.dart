@@ -111,15 +111,20 @@ class MyForumsView extends ConsumerWidget {
               onPressed: forumsState.isSigning
                   ? null
                   : () async {
-                      final uid = ref.read(authStateProvider).activeAccount?.uid;
+                      final uid = ref
+                          .read(authStateProvider)
+                          .activeAccount
+                          ?.uid;
                       final ok = await ref
                           .read(myForumsControllerProvider.notifier)
                           .batchSign();
                       if (context.mounted &&
-                          ref.read(authStateProvider).activeAccount?.uid == uid) {
+                          ref.read(authStateProvider).activeAccount?.uid ==
+                              uid) {
                         AppToast.showBottom(
                           context,
-                          ok ? '一键签到完成（已签≥7级吧）' : '签到遇到问题，请重试',
+                          ref.read(myForumsControllerProvider).signMessage ??
+                              (ok ? '已完成签到（≥7级吧）' : '签到遇到问题，请重试'),
                         );
                       }
                     },
@@ -164,11 +169,7 @@ class MyForumsView extends ConsumerWidget {
                 itemCount: forumsState.forums.length,
                 itemBuilder: (context, index) {
                   final forum = forumsState.forums[index];
-                  return _buildSingleColumnCard(
-                    context,
-                    colorScheme,
-                    forum,
-                  );
+                  return _buildSingleColumnCard(context, colorScheme, forum);
                 },
               )
             : GridView.builder(
@@ -183,11 +184,7 @@ class MyForumsView extends ConsumerWidget {
                 itemCount: forumsState.forums.length,
                 itemBuilder: (context, index) {
                   final forum = forumsState.forums[index];
-                  return _buildDoubleColumnCard(
-                    context,
-                    colorScheme,
-                    forum,
-                  );
+                  return _buildDoubleColumnCard(context, colorScheme, forum);
                 },
               ),
       ),
@@ -206,9 +203,7 @@ class MyForumsView extends ConsumerWidget {
         onTap: () {
           Navigator.push(
             context,
-            SpringPageRoute(
-              page: ForumView(forumName: forum.name),
-            ),
+            SpringPageRoute(page: ForumView(forumName: forum.name)),
           );
         },
         child: Padding(
@@ -216,9 +211,7 @@ class MyForumsView extends ConsumerWidget {
           child: Row(
             children: [
               AppAvatar(
-                url: TiebaConstants.getForumAvatarUrl(
-                  forum.avatar,
-                ),
+                url: TiebaConstants.getForumAvatarUrl(forum.avatar),
                 size: 46,
                 radius: 23,
               ),
@@ -247,9 +240,7 @@ class MyForumsView extends ConsumerWidget {
                           ),
                           decoration: BoxDecoration(
                             color: colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(
-                              4,
-                            ),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             'Lv.${forum.userLevel}',
@@ -269,9 +260,7 @@ class MyForumsView extends ConsumerWidget {
                             ),
                             decoration: BoxDecoration(
                               color: colorScheme.surfaceContainerLow,
-                              borderRadius: BorderRadius.circular(
-                                4,
-                              ),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               '已签到',
@@ -312,9 +301,7 @@ class MyForumsView extends ConsumerWidget {
         onTap: () {
           Navigator.push(
             context,
-            SpringPageRoute(
-              page: ForumView(forumName: forum.name),
-            ),
+            SpringPageRoute(page: ForumView(forumName: forum.name)),
           );
         },
         child: Padding(
@@ -322,9 +309,7 @@ class MyForumsView extends ConsumerWidget {
           child: Row(
             children: [
               AppAvatar(
-                url: TiebaConstants.getForumAvatarUrl(
-                  forum.avatar,
-                ),
+                url: TiebaConstants.getForumAvatarUrl(forum.avatar),
                 size: 42,
                 radius: 21,
               ),
@@ -353,9 +338,7 @@ class MyForumsView extends ConsumerWidget {
                           ),
                           decoration: BoxDecoration(
                             color: colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(
-                              4,
-                            ),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             'Lv.${forum.userLevel}',
@@ -375,9 +358,7 @@ class MyForumsView extends ConsumerWidget {
                             ),
                             decoration: BoxDecoration(
                               color: colorScheme.surfaceContainerLow,
-                              borderRadius: BorderRadius.circular(
-                                4,
-                              ),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               '已签到',

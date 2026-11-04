@@ -214,6 +214,12 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
     final isNoImageMode =
         habitState.imageLoadMode == 1 || habitState.imageLoadMode == 3;
     final timeStr = _formatRelativeTime(thread.createTime);
+    final hasPreviewLinks =
+        thread.snippetSegments.isNotEmpty ||
+        RegExp(
+          r'https?://',
+          caseSensitive: false,
+        ).hasMatch(thread.contentSnippet);
 
     final agreeRecord = ref.watch(threadAgreeProvider)[thread.id];
     final bool isAgreed = agreeRecord?.isAgreed ?? _isAgreed;
@@ -356,7 +362,6 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                             context,
                             segment.text,
                             linkUrl: segment.url,
-                            useLinkNames: true,
                             trimWhitespace: thread.snippetSegments.isEmpty,
                             collapseWhitespace: thread.mediaList.isNotEmpty,
                             baseStyle: TextStyle(
@@ -367,8 +372,10 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                           ),
                       ],
                     ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: hasPreviewLinks ? null : 3,
+                    overflow: hasPreviewLinks
+                        ? TextOverflow.clip
+                        : TextOverflow.ellipsis,
                   ),
                 ),
 
@@ -388,7 +395,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                 Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: InkWell(
-                    splashFactory: InkSplash.splashFactory,
+                    splashFactory: NoSplash.splashFactory,
                     borderRadius: BorderRadius.circular(6),
                     onTap: () {
                       HapticFeedbackUtil.light();
@@ -455,7 +462,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                   // 分享
                   Expanded(
                     child: InkWell(
-                      splashFactory: InkSplash.splashFactory,
+                      splashFactory: NoSplash.splashFactory,
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
                         HapticFeedbackUtil.light();
@@ -488,7 +495,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                   // 回复
                   Expanded(
                     child: InkWell(
-                      splashFactory: InkSplash.splashFactory,
+                      splashFactory: NoSplash.splashFactory,
                       borderRadius: BorderRadius.circular(16),
                       onTap: () {
                         HapticFeedbackUtil.light();
@@ -532,7 +539,7 @@ class _TiebaCardState extends ConsumerState<TiebaCard> {
                   // 点赞
                   Expanded(
                     child: InkWell(
-                      splashFactory: InkSplash.splashFactory,
+                      splashFactory: NoSplash.splashFactory,
                       borderRadius: BorderRadius.circular(16),
                       onTap: _handleToggleAgree,
                       child: Padding(

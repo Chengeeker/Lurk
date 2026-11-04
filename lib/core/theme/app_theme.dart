@@ -5,6 +5,30 @@ import '../utils/haptic_feedback_util.dart';
 class AppTheme {
   AppTheme._();
 
+  static final _pressedOverlay = WidgetStateProperty.resolveWith<Color?>(
+    (states) =>
+        states.contains(WidgetState.pressed) ? Colors.transparent : null,
+  );
+  static final _buttonStyle = ButtonStyle(overlayColor: _pressedOverlay);
+
+  static ThemeData _withoutRipples(ThemeData theme) => theme.copyWith(
+    splashColor: Colors.transparent,
+    highlightColor: Colors.transparent,
+    textButtonTheme: TextButtonThemeData(style: _buttonStyle),
+    filledButtonTheme: FilledButtonThemeData(style: _buttonStyle),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: _buttonStyle),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: _buttonStyle),
+    iconButtonTheme: IconButtonThemeData(style: _buttonStyle),
+    segmentedButtonTheme: SegmentedButtonThemeData(style: _buttonStyle),
+    tabBarTheme: theme.tabBarTheme.copyWith(overlayColor: _pressedOverlay),
+    navigationBarTheme: theme.navigationBarTheme.copyWith(
+      overlayColor: _pressedOverlay,
+    ),
+    checkboxTheme: theme.checkboxTheme.copyWith(overlayColor: _pressedOverlay),
+    radioTheme: theme.radioTheme.copyWith(overlayColor: _pressedOverlay),
+    switchTheme: theme.switchTheme.copyWith(overlayColor: _pressedOverlay),
+  );
+
   static const List<Map<String, dynamic>> themeColors = [
     {'name': '深海蓝', 'color': Color(0xFF2F54EB)},
     {'name': '活力橙', 'color': Color(0xFFFF7A00)},
@@ -137,7 +161,7 @@ class AppTheme {
       ),
     );
 
-    return baseTheme.copyWith(
+    return _withoutRipples(baseTheme).copyWith(
       textTheme: _applyFontWeight(baseTheme.textTheme, fontWeightIndex),
     );
   }
@@ -221,7 +245,7 @@ class AppTheme {
       ),
     );
 
-    return baseTheme.copyWith(
+    return _withoutRipples(baseTheme).copyWith(
       textTheme: _applyFontWeight(baseTheme.textTheme, fontWeightIndex),
     );
   }

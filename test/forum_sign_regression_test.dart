@@ -75,6 +75,9 @@ void main() {
         overrides: [
           storageServiceProvider.overrideWithValue(storage),
           authStateProvider.overrideWith((ref) => _Auth()),
+          batchSignNowProvider.overrideWithValue(
+            () => DateTime.utc(2026, 11, 4, 4),
+          ),
           myForumsRepositoryProvider.overrideWithValue(forums),
           forumRepositoryProvider.overrideWithValue(_Forum()),
         ],
@@ -139,6 +142,9 @@ void main() {
         overrides: [
           storageServiceProvider.overrideWithValue(storage),
           authStateProvider.overrideWith((ref) => auth),
+          batchSignNowProvider.overrideWithValue(
+            () => DateTime.utc(2026, 11, 4, 4),
+          ),
           myForumsRepositoryProvider.overrideWithValue(forums),
         ],
       );

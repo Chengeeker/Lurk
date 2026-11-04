@@ -14,6 +14,7 @@ class TiebaProfileModel {
   final int sex;
   final bool hasConcerned;
   final String ipAddress;
+  final bool? isMember;
 
   const TiebaProfileModel({
     required this.id,
@@ -31,19 +32,28 @@ class TiebaProfileModel {
     this.sex = 0,
     this.hasConcerned = false,
     this.ipAddress = '',
+    this.isMember,
   });
 
-  String get displayName => nameShow.isNotEmpty ? nameShow : (name.isNotEmpty ? name : '贴吧吧友');
+  String get displayName =>
+      nameShow.isNotEmpty ? nameShow : (name.isNotEmpty ? name : '贴吧吧友');
 
   factory TiebaProfileModel.fromJson(Map<String, dynamic> json) {
     final user = json['user'] as Map<String, dynamic>? ?? json;
-    
-    String nameShow = user['name_show']?.toString() ?? user['show_nickname']?.toString() ?? '';
-    String portrait = user['portrait']?.toString() ?? user['portraith']?.toString() ?? '';
+    final membership = int.tryParse(user['is_mem']?.toString() ?? '');
+
+    String nameShow =
+        user['name_show']?.toString() ??
+        user['show_nickname']?.toString() ??
+        '';
+    String portrait =
+        user['portrait']?.toString() ?? user['portraith']?.toString() ?? '';
 
     if (user['show_icon_list'] is List) {
       for (var icon in user['show_icon_list']) {
-        if (icon is Map && icon['type'] == 'name_show' && icon['text'] != null) {
+        if (icon is Map &&
+            icon['type'] == 'name_show' &&
+            icon['text'] != null) {
           final t = icon['text'].toString();
           if (t.isNotEmpty) nameShow = t;
         }
@@ -51,7 +61,8 @@ class TiebaProfileModel {
     }
 
     if (user['user_show_info'] is Map) {
-      final feedHead = user['user_show_info']['feed_head'] as Map<String, dynamic>?;
+      final feedHead =
+          user['user_show_info']['feed_head'] as Map<String, dynamic>?;
       if (feedHead != null && feedHead['main_data'] is List) {
         for (var item in feedHead['main_data']) {
           if (item is Map && item['type'] == 1 && item['text'] is Map) {
@@ -74,11 +85,17 @@ class TiebaProfileModel {
       postNum: int.tryParse(user['post_num']?.toString() ?? '0') ?? 0,
       threadNum: int.tryParse(user['thread_num']?.toString() ?? '0') ?? 0,
       agreeNum: int.tryParse(user['total_agree_num']?.toString() ?? '0') ?? 0,
-      bookmarkNum: int.tryParse(user['favorite_num']?.toString() ?? user['bookmark_count']?.toString() ?? '0') ?? 0,
+      bookmarkNum:
+          int.tryParse(
+            user['favorite_num']?.toString() ??
+                user['bookmark_count']?.toString() ??
+                '0',
+          ) ??
+          0,
       sex: int.tryParse(user['sex']?.toString() ?? '0') ?? 0,
       hasConcerned: user['has_concerned'] == 1 || user['has_concerned'] == '1',
       ipAddress: user['ip_address']?.toString() ?? '',
+      isMember: membership == null || membership < 0 ? null : membership != 0,
     );
   }
 }
-

@@ -3,20 +3,33 @@ import 'package:flutter/material.dart' show DateUtils;
 
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/storage/storage_service.dart';
+import '../../profile/data/profile_repository.dart';
 import '../data/models/followed_forum_model.dart';
 import '../data/my_forums_repository.dart';
+
+final batchSignNowProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
+bool isEarlyBatchSignTime(DateTime now) =>
+    now.toUtc().add(const Duration(hours: 8)).hour == 0;
+
+const earlyBatchSignMessage =
+    '普通用户在北京时间 00:00–01:00 暂不支持一键签到，请 01:00 后重试，或进入贴吧单独签到。';
 
 class MyForumsState {
   final List<FollowedForumModel> forums;
   final bool isLoading;
   final bool isSigning;
   final String? errorMessage;
+  final String? signMessage;
 
   const MyForumsState({
     this.forums = const [],
     this.isLoading = false,
     this.isSigning = false,
     this.errorMessage,
+    this.signMessage,
   });
 
   MyForumsState copyWith({
@@ -24,12 +37,15 @@ class MyForumsState {
     bool? isLoading,
     bool? isSigning,
     String? errorMessage,
+    String? signMessage,
+    bool clearSignMessage = false,
   }) {
     return MyForumsState(
       forums: forums ?? this.forums,
       isLoading: isLoading ?? this.isLoading,
       isSigning: isSigning ?? this.isSigning,
       errorMessage: errorMessage,
+      signMessage: clearSignMessage ? null : signMessage ?? this.signMessage,
     );
   }
 }
@@ -39,15 +55,34 @@ class MyForumsController extends StateNotifier<MyForumsState> {
   final Ref _ref;
   int _refreshSequence = 0;
   int _accountRevision = 0;
-  DateTime _signDay = DateUtils.dateOnly(DateTime.now());
+  DateTime? _signDay;
+  DateTime? _forumsDay;
   final Set<String> _confirmedSigns = {};
 
   void _checkSignDay() {
-    final today = DateUtils.dateOnly(DateTime.now());
+    final today = DateUtils.dateOnly(
+      _ref.read(batchSignNowProvider)().toUtc().add(const Duration(hours: 8)),
+    );
     if (today != _signDay) {
       _signDay = today;
+      _forumsDay = null;
       _confirmedSigns.clear();
     }
+  }
+
+  Iterable<FollowedForumModel> get _batchTargets {
+    final eligible = state.forums.where((forum) => forum.userLevel >= 7);
+    return eligible.isNotEmpty ? eligible : state.forums;
+  }
+
+  bool get _batchAlreadyComplete {
+    final targets = _batchTargets;
+    return targets.isNotEmpty &&
+        targets.every(
+          (forum) =>
+              _confirmedSigns.contains(forum.name) ||
+              (_forumsDay == _signDay && forum.isSigned),
+        );
   }
 
   void markSigned(String forumName) {
@@ -67,6 +102,7 @@ class MyForumsController extends StateNotifier<MyForumsState> {
     _ref.listen<AuthState>(authStateProvider, (previous, next) {
       if (previous?.activeAccount?.uid != next.activeAccount?.uid) {
         _accountRevision++;
+        _forumsDay = null;
         _confirmedSigns.clear();
         state = const MyForumsState();
         refresh();
@@ -74,25 +110,38 @@ class MyForumsController extends StateNotifier<MyForumsState> {
     });
   }
 
-  Future<void> refresh() async {
+  Future<bool> refresh({Set<String>? requiredNames}) async {
     _checkSignDay();
+    final requestDay = _signDay;
     final requestSequence = ++_refreshSequence;
     final account = _ref.read(authStateProvider).activeAccount;
     if (account == null || !account.isLogin) {
-      if (requestSequence != _refreshSequence) return;
+      if (requestSequence != _refreshSequence) return false;
       state = state.copyWith(forums: [], isLoading: false);
-      return;
+      return false;
     }
 
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final list = await _repository.getFollowedForums(uid: account.uid);
       final currentAccount = _ref.read(authStateProvider).activeAccount;
-      if (requestSequence != _refreshSequence ||
+      if (!mounted ||
+          requestSequence != _refreshSequence ||
           currentAccount?.uid != account.uid) {
-        return;
+        return false;
       }
       _checkSignDay();
+      if (requiredNames != null &&
+          (requestDay != _signDay ||
+              !list
+                  .map((forum) => forum.name)
+                  .toSet()
+                  .containsAll(requiredNames))) {
+        state = state.copyWith(isLoading: false);
+        return false;
+      }
+      // A response started yesterday cannot confirm today's sign status.
+      _forumsDay = requestDay == _signDay ? requestDay : null;
       state = state.copyWith(
         forums: [
           for (final forum in list)
@@ -102,9 +151,14 @@ class MyForumsController extends StateNotifier<MyForumsState> {
         ],
         isLoading: false,
       );
+      return true;
     } catch (e) {
-      if (requestSequence != _refreshSequence) return;
-      state = state.copyWith(isLoading: false, errorMessage: '获取关注贴吧失败');
+      if (!mounted || requestSequence != _refreshSequence) return false;
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: requiredNames == null ? '获取关注贴吧失败' : null,
+      );
+      return false;
     }
   }
 
@@ -112,16 +166,58 @@ class MyForumsController extends StateNotifier<MyForumsState> {
     final account = _ref.read(authStateProvider).activeAccount;
     if (account == null || !account.isLogin || state.isSigning) return false;
     _checkSignDay();
+    if (_batchAlreadyComplete) {
+      state = state.copyWith(clearSignMessage: true);
+      return true;
+    }
     final revision = _accountRevision;
+    final requestDay = _signDay;
 
-    state = state.copyWith(isSigning: true);
+    state = state.copyWith(isSigning: true, clearSignMessage: true);
     try {
       final tbs = await _ref.read(authStateProvider.notifier).getValidTbs();
       if (!mounted || revision != _accountRevision) return false;
-      final ok = await _repository.batchSignIn(
-        tbs: tbs.isNotEmpty ? tbs : account.tbs,
-      );
+      final now = _ref.read(batchSignNowProvider);
+      bool? isMember;
+      if (isEarlyBatchSignTime(now())) {
+        try {
+          final profile = await _ref
+              .read(profileRepositoryProvider)
+              .getProfile(uid: account.uid);
+          if (profile?.id == account.uid) isMember = profile?.isMember;
+        } catch (_) {
+          // Unknown membership must not block a member's server-authorized sign.
+        }
+        if (!mounted || revision != _accountRevision) return false;
+        if (isEarlyBatchSignTime(now()) && isMember == false) {
+          state = state.copyWith(
+            isSigning: false,
+            signMessage: earlyBatchSignMessage,
+          );
+          return false;
+        }
+      }
+      var ok = false;
+      try {
+        ok = await _repository.batchSignIn(
+          tbs: tbs.isNotEmpty ? tbs : account.tbs,
+        );
+      } catch (_) {
+        // A lost response can still follow a successful server-side sign.
+      }
       if (!mounted || revision != _accountRevision) return false;
+      _checkSignDay();
+      final verifyStatus = !ok || requestDay != _signDay;
+      if (verifyStatus) {
+        final expectedNames = _batchTargets.map((forum) => forum.name).toSet();
+        final refreshed = await refresh(requiredNames: expectedNames);
+        if (!mounted || revision != _accountRevision) return false;
+        ok =
+            refreshed &&
+            _forumsDay == _signDay &&
+            _batchAlreadyComplete &&
+            expectedNames.isNotEmpty;
+      }
       if (ok) {
         _checkSignDay();
         // 百度贴吧一键签到官方限制：仅支持签到用户等级大于等于 7 级的吧
@@ -139,9 +235,14 @@ class MyForumsController extends StateNotifier<MyForumsState> {
           isSigning: false,
           isLoading: false,
         );
-        await refresh();
+        if (!verifyStatus) await refresh();
       } else {
-        state = state.copyWith(isSigning: false);
+        state = state.copyWith(
+          isSigning: false,
+          signMessage: isMember == null && isEarlyBatchSignTime(now())
+              ? '一键签到未完成。$earlyBatchSignMessage'
+              : null,
+        );
       }
       return mounted && revision == _accountRevision && ok;
     } catch (_) {

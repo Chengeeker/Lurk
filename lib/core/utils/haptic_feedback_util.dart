@@ -43,7 +43,7 @@ class HapticFeedbackUtil {
 class HapticSplashFactory extends InteractiveInkFeatureFactory {
   final InteractiveInkFeatureFactory delegate;
 
-  const HapticSplashFactory({this.delegate = InkSplash.splashFactory});
+  const HapticSplashFactory({this.delegate = NoSplash.splashFactory});
 
   @override
   InteractiveInkFeature create({

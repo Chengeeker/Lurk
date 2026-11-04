@@ -16,7 +16,6 @@ class TiebaTextParser {
     bool collapseWhitespace = false,
     Color? linkColor,
     String? linkUrl,
-    bool useLinkNames = false,
     bool trimWhitespace = true,
     void Function(String userName)? onUserTap,
     void Function(String topic)? onTopicTap,
@@ -42,12 +41,7 @@ class TiebaTextParser {
         explicitLink.host.isNotEmpty) {
       return [
         TextSpan(
-          text: useLinkNames
-              ? LinkRoutingService.labelForUrl(
-                  explicitLink.toString(),
-                  title: normalizedText,
-                )
-              : (normalizedText.isEmpty ? '网页链接 🔗' : normalizedText),
+          text: LinkRoutingService.displayUrl(explicitLink.toString()),
           style: (baseStyle ?? const TextStyle()).copyWith(
             color: primary,
             decoration: TextDecoration.underline,
@@ -109,9 +103,7 @@ class TiebaTextParser {
       } else if (matchedStr.toLowerCase().startsWith('http')) {
         spans.add(
           TextSpan(
-            text: useLinkNames
-                ? LinkRoutingService.labelForUrl(matchedStr)
-                : '网页链接 🔗',
+            text: LinkRoutingService.displayUrl(matchedStr),
             style: (baseStyle ?? const TextStyle()).copyWith(
               color: primary,
               decoration: TextDecoration.underline,

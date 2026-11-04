@@ -17,18 +17,7 @@ class LinkRoutingService {
   static const MethodChannel _channel = MethodChannel("com.lurk/app");
   static bool _hasInitializedListener = false;
 
-  static String labelForUrl(String url, {String title = ''}) {
-    final label = title.trim();
-    if (label.isNotEmpty &&
-        label != '网页链接' &&
-        label != '网页链接 🔗' &&
-        !RegExp(r'^https?://', caseSensitive: false).hasMatch(label)) {
-      return title;
-    }
-    final target = _resolveUri(url);
-    if (target?.host.toLowerCase() == 'pan.quark.cn') return '夸克网盘';
-    return target?.toString() ?? url;
-  }
+  static String displayUrl(String url) => _resolveUri(url)?.toString() ?? url;
 
   static Uri? _resolveUri(String rawUrl) {
     final uri = Uri.tryParse(rawUrl.trim());

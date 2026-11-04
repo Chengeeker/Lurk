@@ -132,8 +132,26 @@ class MyForumsRepository {
       data: {'tbs': tbs},
     );
     final data = res.data;
-    return data is Map &&
-        (data['error_code'] == 0 || data['error_code'] == '0');
+    if (data is! Map ||
+        !_isSignComplete(data['error_code'], data['error_msg'])) {
+      return false;
+    }
+    final error = data['error'];
+    return error == null ||
+        (error is Map && _isSignComplete(error['errno'], error['errmsg']));
+  }
+
+  bool _isSignComplete(dynamic code, dynamic message) {
+    final number = int.tryParse(code.toString());
+    if (number == null) return false;
+    if (number == 0) return true;
+    // Duplicate signs are complete; never infer success from an unknown code.
+    return message is String &&
+        !RegExp(r'未签到|没签到|未完成|没有签到|失败|部分|剩余|权限|限制|不支持|稍后|重试')
+            .hasMatch(message) &&
+        RegExp(
+          r'(?:已(?:经)?(?:全部|完成(?:今日|今天)?的?)?(?:一键)?签到|已(?:经)?签过到)(?:过了?|了)?(?:[，,。！!～~\s]|$)|重复(?:一键)?签到',
+        ).hasMatch(message);
   }
 }
 

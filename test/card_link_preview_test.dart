@@ -22,6 +22,68 @@ void main() {
   const target = 'https://pan.quark.cn/s/e0c0079e4291';
   final wrapped =
       'https://tieba.baidu.com/mo/q/checkurl?url=${Uri.encodeComponent(target)}';
+  for (final mode in ['structured', 'plain', 'text']) {
+    testWidgets('long $mode preview wraps at narrow width and large text', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService(await SharedPreferences.getInstance());
+      final longUrl =
+          '$target?pwd=ab12&file=${List.filled(25, 'abcdefgh').join()}#folder';
+      final model = TiebaThreadModel.fromJson({
+        'id': 'long',
+        'title': '长链接',
+        'abstract': [
+          {
+            'type': mode == 'structured' ? 1 : 0,
+            'text': mode == 'structured'
+                ? '夸克网盘'
+                : mode == 'plain'
+                ? longUrl
+                : List.filled(80, '普通正文').join(),
+            if (mode == 'structured') 'link': longUrl,
+          },
+        ],
+      });
+      await tester.binding.setSurfaceSize(const Size(360, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [storageServiceProvider.overrideWithValue(storage)],
+          child: MaterialApp(
+            home: MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(1.4)),
+              child: Scaffold(
+                body: SingleChildScrollView(child: TiebaCard(thread: model)),
+              ),
+            ),
+          ),
+        ),
+      );
+      final rich = find.byWidgetPredicate(
+        (w) =>
+            w is RichText &&
+            w.text.toPlainText().contains(mode == 'text' ? '普通正文' : target),
+      );
+      final paragraph = tester.renderObject<RenderParagraph>(rich);
+      if (mode == 'text') {
+        expect(paragraph.maxLines, 3);
+      } else {
+        expect(paragraph.text.toPlainText(), longUrl);
+        expect(paragraph.maxLines, isNull);
+        final lastGlyph = paragraph.getBoxesForSelection(
+          TextSelection(
+            baseOffset: longUrl.length - 1,
+            extentOffset: longUrl.length,
+          ),
+        );
+        expect(lastGlyph, isNotEmpty);
+        expect(lastGlyph.last.bottom, lessThanOrEqualTo(paragraph.size.height));
+        expect(paragraph.text.toPlainText().contains('pwd=ab12&file='), isTrue);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final field in ['abstract', 'first_post_content', 'content']) {
     test(
       '$field links retain names and destinations through cache and like updates',
@@ -113,9 +175,9 @@ void main() {
           expect(rich, findsOneWidget);
           final paragraph = tester.renderObject<RenderParagraph>(rich);
           final text = paragraph.text.toPlainText();
-          expect(text, '前文 夸克网盘 后文');
+          expect(text, '前文 $target 后文');
           expect(text.contains('网页链接'), isFalse);
-          final start = text.indexOf('夸克网盘');
+          final start = text.indexOf(target);
           final box = paragraph
               .getBoxesForSelection(
                 TextSelection(baseOffset: start, extentOffset: start + 4),

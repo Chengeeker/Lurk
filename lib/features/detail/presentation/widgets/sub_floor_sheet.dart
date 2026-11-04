@@ -304,7 +304,7 @@ class _SubFloorSheetState extends ConsumerState<SubFloorSheet> {
                             final timeStr = _formatRelativeTime(sp.time);
                             return InkWell(
                               enableFeedback: false,
-                              splashFactory: InkSplash.splashFactory,
+                              splashFactory: NoSplash.splashFactory,
                               borderRadius: BorderRadius.circular(12),
                               onLongPress: () {
                                 HapticFeedbackUtil.light();

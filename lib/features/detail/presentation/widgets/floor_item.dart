@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/auth/auth_provider.dart';
+import '../../../../core/services/link_routing_service.dart';
 import '../../../../core/utils/app_dialog.dart';
 import '../../../../core/utils/app_toast.dart';
 import '../../../../core/utils/haptic_feedback_util.dart';
@@ -334,7 +335,7 @@ class FloorItem extends ConsumerWidget {
 
     return InkWell(
       enableFeedback: false,
-      splashFactory: InkSplash.splashFactory,
+      splashFactory: NoSplash.splashFactory,
       onLongPress: () {
         HapticFeedbackUtil.light();
         _showFloorActionSheet(context, ref, canDelete: canDelete);
@@ -556,8 +557,22 @@ class FloorItem extends ConsumerWidget {
                             children: [
                               ...floor.subPosts.take(2).map((sp) {
                                 final text = sp.contentList
-                                    .map((c) => c.text)
+                                    .map((c) {
+                                      final url = c.url;
+                                      return c.type == 1 &&
+                                              url != null &&
+                                              RegExp(
+                                                r'^https?://',
+                                                caseSensitive: false,
+                                              ).hasMatch(url)
+                                          ? LinkRoutingService.displayUrl(url)
+                                          : c.text;
+                                    })
                                     .join('');
+                                final hasLinks = RegExp(
+                                  r'https?://',
+                                  caseSensitive: false,
+                                ).hasMatch(text);
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 1,
@@ -582,8 +597,10 @@ class FloorItem extends ConsumerWidget {
                                         ),
                                       ],
                                     ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: hasLinks ? null : 2,
+                                    overflow: hasLinks
+                                        ? TextOverflow.clip
+                                        : TextOverflow.ellipsis,
                                   ),
                                 );
                               }),

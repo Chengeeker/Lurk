@@ -110,7 +110,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(detail.calls, 1);
         final rich = find.byWidgetPredicate(
-          (w) => w is RichText && w.text.toPlainText() == '夸克网盘',
+          (w) => w is RichText && w.text.toPlainText() == target,
         );
         expect(rich, findsOneWidget);
         final paragraph = tester.renderObject<RenderParagraph>(rich);
