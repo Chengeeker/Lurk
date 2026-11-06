@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -39,6 +40,24 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class NavigationAppearanceTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun opaqueFloatingSelectionLeavesShellVisibleAboveAndBelow() {
+        val palette = originalColorScheme(0, false)
+        var density = 1f
+        compose.setContent {
+            density = LocalDensity.current.density
+            MaterialTheme(colorScheme = palette) {
+                Box(Modifier.fillMaxWidth().testTag("floating-nav")) {
+                    OriginalNavigationBar(1, dark = false, floating = true, glass = false) {}
+                }
+            }
+        }
+        val image = compose.onNodeWithTag("floating-nav").captureToImage().asAndroidBitmap()
+        val x = compose.onNodeWithText("动态", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center.x.toInt()
+        assertEquals(palette.surfaceContainerHigh.toArgb(), image.getPixel(x, (2 * density).toInt()))
+        assertEquals(palette.primaryContainer.toArgb(), image.getPixel(x - (14 * density).toInt(), (10 * density).toInt()))
+        assertEquals(palette.surfaceContainerHigh.toArgb(), image.getPixel(x, (54 * density).toInt()))
+    }
 
     @Test fun glassPressureStartsClosingOnReleaseAndSettlesWithinTheReferenceDuration() {
         var held by mutableStateOf(false)

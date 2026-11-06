@@ -4,6 +4,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.rounded.*
@@ -12,7 +14,6 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.em
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -141,15 +143,9 @@ fun BackupScreen(back: () -> Unit) {
     FrostedFrame(header = { PageBar("WebDAV 云端备份与恢复", back, titleWeight = FontWeight.Bold) }) {
         Column(Modifier.verticalScroll(rememberPageScrollState()).padding(start = 16.dp, top = 14.dp + LocalContentTop.current, end = 16.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth().background(colors.primaryContainer.copy(alpha = .4f), RoundedCornerShape(16.dp)).border(1.dp, colors.primary.copy(alpha = .2f), RoundedCornerShape(16.dp)).padding(14.dp)) {
-                Icon(Icons.Rounded.CloudSync, null, tint = colors.primary); Spacer(Modifier.width(12.dp)); Column { Text("备份内容", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primary); Spacer(Modifier.height(4.dp)); Text("备份应用设置、搜索与浏览历史等本地数据，不包含图片和视频缓存。", fontSize = 14.sp, lineHeight = 1.4.em, color = colors.onSurfaceVariant) }
+                Icon(Icons.Rounded.CloudSync, null, tint = colors.primary); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text("备份内容", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primary); Spacer(Modifier.height(4.dp)); Text("备份设置、收藏和历史，不含图片与视频缓存。", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant) }
             }
-            SectionCard {
-                listOf(false, true).forEach { choice -> Row(Modifier.fillMaxWidth().heightIn(min = 76.dp).feedbackClickable(enabled = !model.writing) { full = choice }.padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) { RadioButton(full == choice, null, Modifier.size(40.dp), enabled = !model.writing) }
-                    Spacer(Modifier.width(16.dp))
-                    Column(Modifier.weight(1f)) { Text(if (choice) "全量备份" else "全量安全备份", style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp)); Text(if (choice) "同时上传 Cookie、Token 和 WebDAV 密码。备份文件含明文凭据，请妥善保管云盘及历史备份。" else "Cookie、Token 和 WebDAV 密码不会上传。", fontSize = 14.sp, color = colors.onSurfaceVariant) }
-                } }
-            }
+            SectionCard { BackupModeOptions(full, !model.writing) { full = it } }
             SectionCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("WebDAV 服务器配置", fontSize = 16.sp, fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(4.dp))
@@ -172,7 +168,29 @@ fun BackupScreen(back: () -> Unit) {
             }
         }
     }
-    if (restore) AlertDialog(onDismissRequest = { restore = false }, title = { Text("从 WebDAV 恢复备份？") }, text = { Text("恢复备份将覆盖备份中包含的设置和历史。若云端是全量备份，还会替换贴吧登录凭据及 WebDAV 密码；全量安全备份保留本机登录凭据。是否继续？") }, confirmButton = { Button(onClick = tapFeedback { restore = false; run("restore") }) { Text("确定恢复") } }, dismissButton = { TextButton(onClick = tapFeedback { restore = false }) { Text("取消") } })
+    if (restore) AlertDialog(onDismissRequest = { restore = false }, title = { Text("从 WebDAV 恢复备份？") }, text = { Text("将用备份覆盖本机对应数据。全量备份还会替换登录会话和 WebDAV 密码。") }, confirmButton = { Button(onClick = tapFeedback { restore = false; run("restore") }) { Text("确定恢复") } }, dismissButton = { TextButton(onClick = tapFeedback { restore = false }) { Text("取消") } })
 }
 
+@Composable
+internal fun BackupModeOptions(full: Boolean, enabled: Boolean, onSelect: (Boolean) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.selectableGroup()) {
+        listOf(false, true).forEach { choice ->
+            Row(
+                Modifier.fillMaxWidth()
+                    .selectable(full == choice, enabled = enabled, role = Role.RadioButton, onClick = tapFeedback { onSelect(choice) })
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(if (choice) "全量备份" else "全量安全备份", style = MaterialTheme.typography.titleMedium)
+                    Text(if (choice) "含会话及网盘密码" else "不含会话及网盘密码", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                    if (choice) Text("含明文凭据，请保管", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
+                }
+                RadioButton(full == choice, null, Modifier.size(24.dp), enabled = enabled)
+            }
+        }
+    }
+}
 

@@ -31,6 +31,28 @@ import org.robolectric.annotation.GraphicsMode
 class AppearanceTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun webDavModeDescriptionsFitNarrowScreensAndWholeRowsSelect() {
+        var full by mutableStateOf(false)
+        compose.setContent {
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides PreferenceDensity(density, 1.4f)) {
+                MaterialTheme {
+                    Box(Modifier.width(320.dp).padding(horizontal = 16.dp)) {
+                        BackupModeOptions(full, enabled = true) { full = it }
+                    }
+                }
+            }
+        }
+        for (label in listOf("不含会话及网盘密码", "含会话及网盘密码", "含明文凭据，请保管")) {
+            val layouts = mutableListOf<TextLayoutResult>()
+            compose.onNodeWithText(label, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertEquals(label, 1, layouts.single().lineCount)
+        }
+        compose.onNodeWithText("全量安全备份").assertIsSelected()
+        compose.onNodeWithText("全量备份").performClick().assertIsSelected()
+    }
+
     @Test fun whitespaceOnlyPostBodyDoesNotPushTheVideoDown() {
         var body by mutableStateOf(listOf(Segment("\n"), Segment("", media = Media("poster", isVideo = true))))
         compose.setContent {

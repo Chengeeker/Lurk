@@ -223,7 +223,7 @@ internal fun OriginalNavigationBar(selected: Int, dark: Boolean, floating: Boole
             Box(Modifier.matchParentSize().shadow(8.dp, RoundedCornerShape(32.dp)).clip(RoundedCornerShape(32.dp))
                 .background(if (dark) Color(0xFF222328) else colors.surfaceContainerHigh))
             Box(Modifier.offset { IntOffset((width.toPx() / 4f * position.value).roundToInt(), 0) }.width(width / 4).height(56.dp)
-                .clip(RoundedCornerShape(40.dp)).background(if (dark) colors.secondaryContainer else colors.primaryContainer))
+                .padding(4.dp).background(if (dark) colors.secondaryContainer else colors.primaryContainer, RoundedCornerShape(50)))
             Row {
                 labels.forEachIndexed { index, label ->
                     val active = selected == index
