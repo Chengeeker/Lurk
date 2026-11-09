@@ -46,6 +46,7 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -208,19 +209,21 @@ fun <T> PagedContent(
     identity: Any?, load: suspend (Int) -> Pair<List<T>, Boolean>, modifier: Modifier = Modifier,
     targetId: String = "", bottomPadding: Int = 80, emptyMessage: String = "暂无内容", topPadding: Int = 0,
     emptyState: (@Composable (Boolean, String?, () -> Unit) -> Unit)? = null,
+    reloadKey: Any? = Unit,
     header: (@Composable LazyItemScope.() -> Unit)? = null, item: @Composable (T) -> Unit,
 ) {
-    val model = LocalState.current
-    val scope = rememberCoroutineScope()
+    val scope = key(identity, reloadKey) { rememberCoroutineScope() }
     val listState = rememberLazyListState()
     val state by pageState("items:$identity") { PageItems<T>() }
     var values by state::items
     var page by state::number
     var more by state::more
-    var busy by remember(identity) { mutableStateOf(false) }
-    var refreshing by remember(identity) { mutableStateOf(false) }
-    var updated by remember(identity) { mutableLongStateOf(System.currentTimeMillis()) }
-    var error by remember(identity) { mutableStateOf<String?>(null) }
+    var loadedKey by pageState("loadedKey:$identity") { reloadKey }
+    var targetLocated by rememberSaveable(identity) { mutableStateOf(false) }
+    var busy by remember(identity, reloadKey) { mutableStateOf(false) }
+    var refreshing by remember(identity, reloadKey) { mutableStateOf(false) }
+    var updated by remember(identity, reloadKey) { mutableLongStateOf(System.currentTimeMillis()) }
+    var error by remember(identity, reloadKey) { mutableStateOf<String?>(null) }
     val currentLoad by rememberUpdatedState(load)
     fun fetch(refresh: Boolean) {
         if (busy) return
@@ -229,21 +232,27 @@ fun <T> PagedContent(
             try {
                 val target = if (refresh) 1 else page + 1
                 val result = currentLoad(target)
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 values = (if (refresh) result.first else values + result.first).distinctBy {
                     when (it) { is ThreadItem -> it.id + ":" + it.postId; is Forum -> it.id; is JSONObject -> it.s("id", "pid", "post_id", "tid").ifEmpty { it.toString() }; else -> it }
                 }
+                loadedKey = reloadKey
                 page = target; more = result.second; updated = System.currentTimeMillis()
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { error = if (e is ApiFailure) e.message else "加载失败，请重试" }
             finally { busy = false; refreshing = false }
         }
     }
-    LaunchedEffect(identity) { if (page == 0) fetch(true) }
+    // Keep rows and scroll anchors mounted until the new filter replaces page one.
+    LaunchedEffect(identity, reloadKey) {
+        if (loadedKey != reloadKey) targetLocated = true
+        if (page == 0 || loadedKey != reloadKey) fetch(true)
+    }
     val session = LocalPage.current
     val invalidation = session.invalidation
     LaunchedEffect(invalidation) { if (invalidation > 0) { listState.scrollToItem(0); fetch(true) } }
     val active by rememberUpdatedState(LocalPageActive.current)
-    LaunchedEffect(session, identity) { session.commands.collect { refresh -> if (active) { listState.animateScrollToItem(0); if (refresh) fetch(true) } } }
+    LaunchedEffect(session, identity, reloadKey) { session.commands.collect { refresh -> if (active) { listState.animateScrollToItem(0); if (refresh) fetch(true) } } }
     var previousPosition by pageState("previousScroll:$identity") { 0 to 0 }
     LaunchedEffect(session, identity) { session.timelineToggle.collect {
         if (!active) return@collect
@@ -252,7 +261,6 @@ fun <T> PagedContent(
             listState.animateScrollToItem(0)
         } else if (previousPosition.first > 0 || previousPosition.second > 50) listState.animateScrollToItem(previousPosition.first, previousPosition.second)
     } }
-    var targetLocated by rememberSaveable(identity) { mutableStateOf(false) }
     LaunchedEffect(values.size, targetId) {
         if (!targetLocated && targetId.isNotEmpty() && targetId != "0") {
             val index = values.indexOfFirst { it is JSONObject && it.s("id") == targetId }
@@ -273,11 +281,11 @@ fun <T> PagedContent(
         item {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (busy) { if (page == 0) CircularProgressIndicator() else OriginalRefreshIndicator(ClassicPhase.Loading, updated, footer = true) }
-                error?.let { OriginalRefreshIndicator(ClassicPhase.Failed, updated, footer = true); Text(it); TextButton(onClick = tapFeedback { fetch(page == 0) }) { Text("重试") } }
+                error?.let { OriginalRefreshIndicator(ClassicPhase.Failed, updated, footer = true); Text(it); TextButton(onClick = tapFeedback { fetch(page == 0 || loadedKey != reloadKey) }) { Text("重试") } }
                 if (!busy && error == null) {
                     if (values.isEmpty()) { Text(emptyMessage, color = MaterialTheme.colorScheme.outline); if (more) TextButton(onClick = tapFeedback { fetch(false) }) { Text("加载更多") } }
                     else if (more) {
-                        if (model.store.bool("key_habit_auto_load_more", true)) LaunchedEffect(page) { fetch(false) }
+                        if (LocalState.current.store.bool("key_habit_auto_load_more", true)) LaunchedEffect(page) { fetch(false) }
                         TextButton(onClick = tapFeedback { fetch(false) }) { Text("加载更多") }
                     } else OriginalRefreshIndicator(ClassicPhase.NoMore, updated, footer = true)
                 }

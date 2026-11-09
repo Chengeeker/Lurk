@@ -82,6 +82,9 @@ fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolea
     val lifecycle = LocalLifecycleOwner.current.lifecycle; val scope = rememberCoroutineScope()
     val player = remember { ExoPlayer.Builder(context).setMediaSourceFactory(DefaultMediaSourceFactory(DefaultHttpDataSource.Factory().setUserAgent("bdtb for Android 12.41.7.1").setDefaultRequestProperties(mapOf("Referer" to "https://tieba.baidu.com/")).setAllowCrossProtocolRedirects(true))).build().apply { volume = .5f } }
     var effective by remember { mutableStateOf(media.video) }
+    val qualityOptions = rememberVideoTrackChoices(player)
+    var qualitySheet by remember { mutableStateOf(false) }
+    var selectedQuality by remember(effective) { mutableStateOf("自动") }
     var retry by remember { mutableIntStateOf(0) }
     val playbackErrors = remember(player) { Channel<Long>(Channel.CONFLATED) }
     var speed by remember { mutableFloatStateOf(1f) }; var fast by remember { mutableStateOf(false) }; var speedSheet by remember { mutableStateOf(false) }
@@ -94,7 +97,7 @@ fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolea
     var volume by remember { mutableFloatStateOf(.5f) }
     fun toggleOrientation() { fullscreen = !fullscreen; activity?.requestedOrientation = if (fullscreen) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT; interaction++ }
     fun playPause() { if (player.playWhenReady) { player.pause(); controls = true } else player.play(); interaction++ }
-    fun load(url: String, at: Long = 0) { effective = url; onUrl(url); failure = false; ready = false; buffering = true; scrubPosition = null; player.setMediaItem(MediaItem.fromUri(url), at); player.prepare(); player.playWhenReady = true }
+    fun load(url: String, at: Long = 0) { selectVideoTrack(player, null); selectedQuality = "自动"; effective = url; onUrl(url); failure = false; ready = false; buffering = true; scrubPosition = null; player.setMediaItem(MediaItem.fromUri(url), at); player.prepare(); player.playWhenReady = true }
     LaunchedEffect(media, retry) {
         playbackErrors.tryReceive()
         failure = false
@@ -141,7 +144,7 @@ fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolea
     LaunchedEffect(fullscreen) { onFullscreen(fullscreen); window?.let { win -> WindowCompat.getInsetsController(win, view).apply { systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE; if (fullscreen) hide(WindowInsetsCompat.Type.systemBars()) else show(WindowInsetsCompat.Type.systemBars()) } } }
     LaunchedEffect(controls) { onControls(controls) }
     val scrubbing = scrubPosition != null
-    LaunchedEffect(playing, controls, interaction, speedSheet, scrubbing) { if (playing && controls && !speedSheet && !scrubbing) { delay(4000); controls = false } }
+    LaunchedEffect(playing, controls, interaction, speedSheet, qualitySheet, scrubbing) { if (playing && controls && !speedSheet && !qualitySheet && !scrubbing) { delay(4000); controls = false } }
     LaunchedEffect(hudEpoch) { if (hud.isNotEmpty()) { delay(900); hud = "" } }
     LaunchedEffect(player) { while (true) { position = player.currentPosition; duration = player.duration.coerceAtLeast(0); delay(250) } }
     val haptics = LocalHapticFeedback.current
@@ -189,36 +192,32 @@ fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolea
         if (buffering && !failure) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White.copy(alpha = .7f))
         if (failure) Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.ErrorOutline, null, Modifier.size(48.dp), tint = Color.White.copy(alpha = .7f)); Spacer(Modifier.height(12.dp)); Text("视频加载失败或链接已失效", color = Color.White.copy(alpha = .7f)); Spacer(Modifier.height(16.dp)); FilledTonalButton(onClick = tapFeedback { retry++ }) { Text("重试") } }
         if (fast) Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 50.dp).background(Color.Black.copy(alpha = .87f), RoundedCornerShape(20.dp)).border(.8.dp, Color.White.copy(alpha = .24f), RoundedCornerShape(20.dp)).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.FastForward, null, Modifier.size(20.dp), tint = Color(0xFFFFD740)); Spacer(Modifier.width(8.dp)); Text("2.0X 倍速快进中", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp) }
-        if (controls && fullscreen) Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = .87f), Color.Black.copy(alpha = .38f), Color.Transparent))).statusBarsPadding().padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            VideoHeaderButton(Icons.Rounded.ArrowBackIosNew, "返回", 18, ::toggleOrientation); Column(Modifier.weight(1f).padding(horizontal = 10.dp)) { Text(media.title, color = Color.White, maxLines = 1, fontSize = 14.sp, fontWeight = FontWeight.Bold); if (media.folderName.isNotEmpty()) Text("@${media.folderName}", color = Color.White.copy(alpha = .7f), maxLines = 1, fontSize = 12.sp) }; VideoHeaderButton(Icons.Rounded.Download, "保存视频", 20) { save(media.copy(video = effective)) }
+        if (controls && fullscreen) ReviewVideoTop(Modifier.align(Alignment.TopCenter), media.title, media.folderName,
+            fullscreen = true, close = ::toggleOrientation) {
+            ReviewVideoAction("download", "保存视频") { save(media.copy(video = effective)) }
         }
-        if (controls && ready && !failure) Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().onSizeChanged { onBottomHeight(it.height) }.background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = .87f)))).navigationBarsPadding().padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 8.dp)) {
-            val displayedPosition = scrubPosition ?: position.toFloat()
-            Row(verticalAlignment = Alignment.CenterVertically) { Text(playbackTime(displayedPosition.toLong()), color = Color.White, fontSize = 12.sp); Slider(displayedPosition.coerceIn(0f, duration.coerceAtLeast(1).toFloat()), { scrubPosition = it }, Modifier.weight(1f), onValueChangeFinished = {
+        if (controls && ready && !failure) ReviewVideoBottom(
+            Modifier.align(Alignment.BottomCenter).onSizeChanged { onBottomHeight(it.height) },
+            scrubPosition?.toLong() ?: position, duration, player.bufferedPosition.coerceAtLeast(0), playing, speed, fullscreen,
+            quality = selectedQuality.takeIf { qualityOptions.isNotEmpty() }, onPlay = ::playPause, onSpeed = { speedSheet = true; interaction++ },
+            onQuality = { qualitySheet = true; interaction++ }, onFullscreen = ::toggleOrientation,
+            onSeek = { scrubPosition = it.toFloat() }, onSeekEnd = {
                 scrubPosition?.let { target -> player.seekTo(target.toLong()); position = target.toLong() }
-                scrubPosition = null
-                interaction++
-            }, enabled = duration > 0, valueRange = 0f..duration.coerceAtLeast(1).toFloat(), thumb = { Box(Modifier.size(12.dp).background(Color(0xFFFFD740), androidx.compose.foundation.shape.CircleShape)) }, track = { state -> Canvas(Modifier.fillMaxWidth().height(3.dp)) { val end = Offset(size.width, size.height / 2); drawLine(Color.White.copy(alpha = .24f), Offset(0f, end.y), end, size.height, StrokeCap.Round); drawLine(Color(0xFFFFD740), Offset(0f, end.y), Offset(size.width * state.value / duration.coerceAtLeast(1), end.y), size.height, StrokeCap.Round) } }); Text(playbackTime(duration), color = Color.White.copy(alpha = .7f), fontSize = 12.sp) }
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = tapFeedback { playPause() }) { Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "播放/暂停", Modifier.size(32.dp), tint = Color.White) }; Spacer(Modifier.weight(1f)); TextButton(onClick = tapFeedback { speedSheet = true }) { Text(if (speed == 1f) "倍速" else "${speed}X", color = if (speed == 1f) Color.White else Color(0xFFFFD740), fontSize = 13.sp, fontWeight = FontWeight.Bold) }; IconButton(onClick = tapFeedback { toggleOrientation() }) { Icon(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen, if (fullscreen) "退出横屏" else "横屏播放", tint = Color.White) } }
-        }
+                scrubPosition = null; interaction++
+            })
         if (hud.isNotEmpty()) Column(Modifier.align(Alignment.Center).widthIn(min = 150.dp).background(Color.Black.copy(alpha = .82f), RoundedCornerShape(20.dp)).border(1.dp, Color.White.copy(alpha = .24f), RoundedCornerShape(20.dp)).padding(horizontal = 18.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(when (hudType) { "brightness" -> Icons.Rounded.Brightness6; "volume" -> Icons.Rounded.VolumeUp; else -> if (hud.startsWith("-")) Icons.Rounded.Replay10 else Icons.Rounded.Forward10 }, null, Modifier.size(28.dp), tint = Color.White)
             Spacer(Modifier.height(8.dp)); Text(hud, color = Color.White, fontSize = 13.sp)
             if (hudType != "seek") { Spacer(Modifier.height(10.dp)); Canvas(Modifier.width(120.dp).height(3.dp)) { drawRect(Color.White.copy(alpha = .24f)); drawRect(Color.White, size = size.copy(width = size.width * if (hudType == "brightness") brightness else volume)) } }
         }
     }
-    if (speedSheet) ModalBottomSheet(sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), onDismissRequest = { speedSheet = false }, containerColor = Color(0xFF212121), shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp), dragHandle = null) {
-        Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("选择播放倍速", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp))
-            listOf(.5f, .75f, 1f, 1.25f, 1.5f, 2f, 3f).forEach { value ->
-                Box(Modifier.fillMaxWidth().heightIn(min = 56.dp).feedbackClickable { speed = value; player.setPlaybackSpeed(value); speedSheet = false; interaction++ }, contentAlignment = Alignment.Center) { Text("${value}X", color = if (speed == value) Color(0xFFFFD740) else Color.White, fontSize = 15.sp, fontWeight = if (speed == value) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center) }
-            }
-        }
+    if (speedSheet) ReviewVideoChoices("播放倍速", standardVideoSpeeds.map { "${it}X" }, "${speed}X", { speedSheet = false; interaction++ }) {
+        speed = it.removeSuffix("X").toFloat(); player.setPlaybackSpeed(speed)
     }
+    if (qualitySheet && qualityOptions.isNotEmpty())
+        ReviewVideoChoices("清晰度选择", listOf("自动") + qualityOptions.keys, selectedQuality, { qualitySheet = false; interaction++ }) {
+            selectVideoTrack(player, qualityOptions[it]); selectedQuality = it
+        }
+    LaunchedEffect(qualityOptions.isEmpty()) { if (qualityOptions.isEmpty()) qualitySheet = false }
 }
 
-@Composable
-private fun VideoHeaderButton(icon: ImageVector, label: String, size: Int, click: () -> Unit) {
-    Box(Modifier.size(38.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.Black.copy(alpha = .55f)).border(.8.dp, Color.White.copy(alpha = .25f), androidx.compose.foundation.shape.CircleShape).feedbackClickable(onClick = click), contentAlignment = Alignment.Center) { Icon(icon, label, Modifier.size(size.dp), tint = Color.White) }
-}

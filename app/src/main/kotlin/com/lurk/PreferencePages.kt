@@ -71,7 +71,7 @@ fun OriginalHabits(back: () -> Unit) {
         PageBar("使用习惯", back, titleWeight = FontWeight.SemiBold)
         Column(Modifier.verticalScroll(rememberPageScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             PreferenceHeading("启动与偏好")
-            SectionCard {
+            SettingsSectionCard {
                 OriginalChoice("启动首选页", "选择启动首选页", Icons.Outlined.Home, "key_habit_initial_tab_index", listOf("进吧", "动态", "消息", "我的"), "当前首选：", 1)
                 OriginalChoice("图片加载设置", "图片加载设置", Icons.Rounded.PhotoFilter, "key_habit_image_load_mode", listOf("智能省流量", "智能无图", "始终高质量", "始终无图"), "当前模式：", descriptions = listOf(
                     "自动压缩优化，列表省流，查看大图加载高清原图（推荐）", "列表仅展示占位提示，点击才加载图片，极致省流", "所有位置均优先请求无压缩原图，画质极致", "完全不加载并隐藏贴子配图，纯文本浏览"))
@@ -79,7 +79,7 @@ fun OriginalHabits(back: () -> Unit) {
                 OriginalSwitch("不保存浏览记录", "key_habit_do_not_save_history", Icons.Rounded.HistoryToggleOff)
             }
             Spacer(Modifier.height(18.dp)); PreferenceHeading("浏览与交互偏好")
-            SectionCard {
+            SettingsSectionCard {
                 OriginalSwitch("自动加载更多", "key_habit_auto_load_more", Icons.Rounded.Autorenew, true)
                 OriginalSwitch("双击顶栏返回顶部", "key_habit_double_tap_top", Icons.Rounded.VerticalAlignTop, true)
                 OriginalSwitch("看图优先加载高清原图", "key_habit_show_original_img", Icons.Outlined.Image)
@@ -97,7 +97,7 @@ fun OriginalBlocks(back: () -> Unit) {
         PageBar("屏蔽设置", back, titleWeight = FontWeight.SemiBold)
         Column(Modifier.verticalScroll(rememberPageScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             PreferenceHeading("内容过滤与屏蔽")
-            SectionCard {
+            SettingsSectionCard {
                 SettingsRow("屏蔽词管理", Icons.Outlined.FilterAlt, "黑名单 ${model.store.list("key_block_words_list").size} 个  |  白名单 ${model.store.list("key_white_words_list").size} 个", detailSize = 12.5.sp) { open(Route("settings", "words")) }
                 OriginalSwitch("彻底隐藏被屏蔽的内容", "key_hide_blocked_completely", Icons.Outlined.VisibilityOff, true)
                 OriginalSwitch("不看视频贴", "key_block_video_threads", Icons.Outlined.VideocamOff)
@@ -142,7 +142,7 @@ fun OriginalWords(back: () -> Unit) {
                 TextButton(onClick = tapFeedback { clear = true }) { Text("清空全部", color = Color(0xFFFF5252), fontSize = 12.5.sp) }
             }
             LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(words, key = { it }) { word -> Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                items(words, key = { it }) { word -> Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.settingsCardColor()) {
                     ListItem(headlineContent = { Text(word) }, leadingContent = { Box(Modifier.size(30.dp).background(accent.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) { Icon(if (tab == 0) Icons.Rounded.Block else Icons.Rounded.Check, null, Modifier.size(16.dp), tint = accent) } },
                         trailingContent = { IconButton(onClick = tapFeedback { model.setting(key, words - word) }) { Icon(Icons.Outlined.Close, "移除 $word") } }, colors = ListItemDefaults.colors(containerColor = Color.Transparent))
                 } }

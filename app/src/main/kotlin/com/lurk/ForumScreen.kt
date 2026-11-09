@@ -79,7 +79,7 @@ fun ForumScreen(name: String, back: () -> Unit) {
             } }
         })
     }) {
-        key(sort, selectedTab) { PagedContent(identity = "$sort:$selectedTab", emptyMessage = "本板块暂无帖子", bottomPadding = 40, load = { page ->
+        PagedContent(identity = "forumThreads", reloadKey = "$sort:$selectedTab", emptyMessage = "本板块暂无帖子", bottomPadding = 40, load = { page ->
             val data = model.api.forum(name, page, sort, tabs.getOrNull(selectedTab), forum.s("id"))
             if (page == 1 && data.has("forum")) {
                 forum = data.obj("forum"); model.observeForum(Forum.parse(JSONObject(forum.toString()).put("name", name)))
@@ -136,7 +136,7 @@ fun ForumScreen(name: String, back: () -> Unit) {
                     listOf("按回复时间", "按发帖时间").forEachIndexed { index, title -> Surface(onClick = tapFeedback { sort = index }, shape = RoundedCornerShape(12.dp), color = if (sort == index) colors.primary.copy(alpha = .12f) else colors.surfaceContainerLow, border = BorderStroke(.8.dp, if (sort == index) colors.primary else colors.outlineVariant.copy(alpha = .25f))) { Text(title, Modifier.padding(horizontal = 10.dp, vertical = 5.dp), fontSize = 11.5.sp, fontWeight = if (sort == index) FontWeight.Bold else FontWeight.Normal, color = if (sort == index) colors.primary else colors.onSurfaceVariant) } }
                 }
             }
-        }) { Box(Modifier.padding(horizontal = 4.dp, vertical = 2.dp)) { ThreadCard(it) } } }
+        }) { Box(Modifier.padding(horizontal = 4.dp, vertical = 2.dp)) { ThreadCard(it) } }
     }
     if (unfollow) AlertDialog(onDismissRequest = { unfollow = false }, title = { Text("取消关注") }, text = { Text("确定要取消关注「${name.removeSuffix("吧")}吧」吗？") }, confirmButton = { TextButton(onClick = tapFeedback { unfollow = false; follow(false) }) { Text("确定取消", color = colors.error) } }, dismissButton = { TextButton(onClick = tapFeedback { unfollow = false }) { Text("取消") } })
     if (rules) ForumRulesSheet(forum.s("id", "forum_id"), rule.s("title")) { rules = false }

@@ -145,8 +145,8 @@ fun BackupScreen(back: () -> Unit) {
             Row(Modifier.fillMaxWidth().background(colors.primaryContainer.copy(alpha = .4f), RoundedCornerShape(16.dp)).border(1.dp, colors.primary.copy(alpha = .2f), RoundedCornerShape(16.dp)).padding(14.dp)) {
                 Icon(Icons.Rounded.CloudSync, null, tint = colors.primary); Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)) { Text("备份内容", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = colors.primary); Spacer(Modifier.height(4.dp)); Text("备份设置、收藏和历史，不含图片与视频缓存。", style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant) }
             }
-            SectionCard { BackupModeOptions(full, !model.writing) { full = it } }
-            SectionCard {
+            SettingsSectionCard { BackupModeOptions(full, !model.writing) { full = it } }
+            SettingsSectionCard {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("WebDAV 服务器配置", fontSize = 16.sp, fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(4.dp))
                     BackupTextField(server, { server = it }, "服务器 URL", Icons.Rounded.Link, !model.writing, hint = "例如: https://dav.jianguoyun.com/dav/", error = serverError.takeIf { showErrors })
@@ -157,7 +157,7 @@ fun BackupScreen(back: () -> Unit) {
                     OutlinedButton(enabled = !model.writing, onClick = tapFeedback { run("test") }, modifier = Modifier.fillMaxWidth()) { if (operation == "test") CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp) else Icon(Icons.Rounded.WifiTethering, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text(if (operation == "test") "正在测试连接..." else "测试服务器连接") }
                 }
             }
-            SectionCard {
+            SettingsSectionCard {
                 Column(Modifier.padding(16.dp)) {
                     Text("云端备份与还原操作", fontSize = 16.sp, fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(16.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

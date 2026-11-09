@@ -60,7 +60,7 @@ suspend fun NativeApi.deletePost(tid: String, pid: String, forum: JSONObject, th
     write(if (thread) "/c/c/bawu/delthread" else "/c/c/bawu/delpost", args)
 }
 
-fun ownsPost(account: Account?, author: Author): Boolean = account != null && ((author.id.isNotEmpty() && author.id != "0" && account.uid == author.id) || (author.portrait.isNotEmpty() && account.raw.s("portrait") == author.portrait) || (author.name != "贴吧吧友" && author.name in listOf(account.name, account.raw.s("name"))))
+fun ownsPost(account: Account?, author: Author): Boolean = account != null && ((author.id.isNotEmpty() && author.id != "0" && account.uid == author.id) || (author.portrait.isNotEmpty() && account.raw.s("portrait") == author.portrait))
 
 @Composable
 fun LevelBadge(level: String, profile: Boolean = false) {
@@ -141,7 +141,7 @@ fun ThreadScreen(tid: String, targetPid: String, back: () -> Unit) {
             IconButton(onClick = tapFeedback { model.bookmark(item) }) { Icon(if (bookmarked) Icons.Filled.Bookmark else Icons.Rounded.BookmarkBorder, if (bookmarked) "取消收藏" else "收藏贴子", tint = if (bookmarked) Color(0xFFFFC107) else colors.onSurfaceVariant) }
         }, colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent), expandedHeight = 56.dp, windowInsets = WindowInsets.statusBars)
     }) {
-        Box(Modifier.weight(1f)) { key(lz, reverse, refresh) { PagedContent(identity = "$lz:$reverse:$refresh", targetId = targetPid, bottomPadding = 32, load = { page ->
+        Box(Modifier.weight(1f)) { PagedContent(identity = "threadComments", reloadKey = "$lz:$reverse:$refresh", targetId = targetPid, bottomPadding = 32, load = { page ->
             val data = model.api.detail(tid, page, lz, reverse)
             thread = data.obj("thread"); forum = data.obj("forum")
             val posts = resolvePostAuthors(data)
@@ -173,7 +173,7 @@ fun ThreadScreen(tid: String, targetPid: String, back: () -> Unit) {
                 Text("只看楼主", Modifier.height(48.dp).feedbackClickable { lz = !lz }.padding(horizontal = 4.dp).wrapContentHeight(Alignment.CenterVertically), fontSize = 13.5.sp, color = if (lz) colors.primary else colors.outline, fontWeight = if (lz) FontWeight.Bold else FontWeight.Normal)
                 Spacer(Modifier.weight(1f)); Text("正序", Modifier.height(48.dp).feedbackClickable { reverse = false }.padding(horizontal = 4.dp).wrapContentHeight(Alignment.CenterVertically), fontSize = 13.5.sp, fontWeight = if (!reverse) FontWeight.Bold else FontWeight.Normal, color = if (!reverse) colors.onSurface else colors.outline); Text("|", Modifier.padding(horizontal = 8.dp), fontSize = 13.sp, color = colors.outline.copy(alpha = .3f)); Text("倒序", Modifier.height(48.dp).feedbackClickable { reverse = true }.padding(horizontal = 4.dp).wrapContentHeight(Alignment.CenterVertically), fontSize = 13.5.sp, fontWeight = if (reverse) FontWeight.Bold else FontWeight.Normal, color = if (reverse) colors.onSurface else colors.outline)
             }
-        }) { post -> CommentFloor(tid, post, author.id, { floor = post }, { actions = post }) } } }
+        }) { post -> CommentFloor(tid, post, author.id, { floor = post }, { actions = post }) } }
         ReplyInput(reply, { reply = it }, "说点什么吧...") {
             if (reply.isNotBlank()) model.action { api, _ -> api.reply(tid, forum.s("id"), forum.s("name"), reply.trim()); reply = ""; refresh++; model.message("回复成功") }
         }
@@ -196,7 +196,9 @@ fun CommentFloor(tid: String, post: JSONObject, authorId: String, reply: () -> U
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) { Text(author.name, Modifier.weight(1f, false).feedbackClickable { open(Route("profile", author.id)) }, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis); LevelBadge(author.level); if (author.id == authorId) Text("楼主", Modifier.padding(start = 5.dp).background(Color(0x26FFC107), RoundedCornerShape(10.dp)).border(.6.dp, Color(0x99FFC107), RoundedCornerShape(10.dp)).padding(horizontal = 5.dp, vertical = 1.dp), fontSize = 9.sp, color = Color(0xFFFFC107), fontWeight = FontWeight.Bold) }
                 Spacer(Modifier.width(8.dp))
-                Row(Modifier.heightIn(min = 48.dp).widthIn(min = 48.dp).feedbackClickable { model.action { api, generation -> api.agree(tid, post.s("id"), !liked); if (model.stillCurrent(generation)) { likes = (likes + if (liked) -1 else 1).coerceAtLeast(0); liked = !liked } } }, verticalAlignment = Alignment.CenterVertically) { Icon(if (liked) Icons.Filled.Favorite else Icons.Rounded.FavoriteBorder, "点赞", Modifier.size(18.dp), tint = if (liked) Color(0xFFFF5252) else colors.outline); Spacer(Modifier.width(4.dp)); Text(if (likes > 0) "$likes" else "", Modifier.width(26.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (liked) Color(0xFFFF5252) else colors.outline) }
+                Row(Modifier.heightIn(min = 48.dp).widthIn(min = 48.dp).feedbackClickable { model.action { api, generation ->
+                    optimisticAgreement(liked to likes, { value -> if (model.stillCurrent(generation)) { liked = value.first; likes = value.second } }) { enabled -> api.agree(tid, post.s("id"), enabled) }
+                } }, verticalAlignment = Alignment.CenterVertically) { Icon(if (liked) Icons.Filled.Favorite else Icons.Rounded.FavoriteBorder, "点赞", Modifier.size(18.dp), tint = if (liked) Color(0xFFFF5252) else colors.outline); Spacer(Modifier.width(4.dp)); Text(if (likes > 0) "$likes" else "", Modifier.width(26.dp), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (liked) Color(0xFFFF5252) else colors.outline) }
                 Spacer(Modifier.width(2.dp)); IconButton(onClick = tapFeedback(actions)) { Icon(Icons.Rounded.MoreHoriz, "更多操作", Modifier.size(18.dp), tint = colors.outline.copy(alpha = .7f)) }
             }
             Text(listOf(relativeTime(post.s("time")), "第 ${post.s("floor")} 楼", author.ip.takeIf(String::isNotEmpty)?.let { "来自$it" }.orEmpty()).filter(String::isNotEmpty).joinToString(" · "), Modifier.padding(top = 2.dp), fontSize = 11.5.sp, color = colors.outline)
@@ -233,6 +235,7 @@ fun DeleteConfirmation(title: String, text: String, dismiss: () -> Unit, delete:
 @Composable
 fun FloorSheet(tid: String, forum: JSONObject, post: JSONObject, ownThread: Boolean, dismiss: () -> Unit) {
     val model = LocalState.current; val colors = MaterialTheme.colorScheme
+    val open = LocalOpen.current
     val haptics = LocalHapticFeedback.current
     var target by remember { mutableStateOf<JSONObject?>(null) }; var actions by remember { mutableStateOf<JSONObject?>(null) }; var delete by remember { mutableStateOf<JSONObject?>(null) }
     var text by rememberSaveable { mutableStateOf("") }; var refresh by remember { mutableIntStateOf(0) }; var count by remember { mutableIntStateOf(0) }
@@ -249,7 +252,7 @@ fun FloorSheet(tid: String, forum: JSONObject, post: JSONObject, ownThread: Bool
                 }) { row ->
                     val author = Author.parse(row.obj("author"))
                     Row(Modifier.fillMaxWidth().combinedClickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, hapticFeedbackEnabled = false, onClick = {}, onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); actions = row }).padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        OriginalAvatar(portraitUrl(author.portrait), author.name, Modifier.size(32.dp).clip(CircleShape)); Spacer(Modifier.width(8.dp))
+                        OriginalAvatar(portraitUrl(author.portrait), author.name, Modifier.size(32.dp).clip(CircleShape).feedbackClickable(enabled = author.id.isNotEmpty()) { open(Route("profile", author.id)) }); Spacer(Modifier.width(8.dp))
                         Column(Modifier.weight(1f)) { Row(verticalAlignment = Alignment.CenterVertically) { Text(author.name, Modifier.weight(1f), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1); Text(relativeTime(row.s("time")), fontSize = 11.sp, color = colors.outline); IconButton(onClick = tapFeedback { actions = row }, modifier = Modifier.size(32.dp)) { Icon(Icons.Rounded.MoreHoriz, "更多操作", Modifier.size(16.dp)) } }; Spacer(Modifier.height(4.dp)); RichText(parseContent(row.opt("content")), fontSize = 13f, height = null); OriginalDivider(Modifier.padding(vertical = 8.dp)) }
                     }
                 } } }

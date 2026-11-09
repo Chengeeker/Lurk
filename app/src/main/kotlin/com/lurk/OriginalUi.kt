@@ -46,8 +46,12 @@ internal object NoPressIndication : IndicationNodeFactory {
 }
 
 @Composable
-fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+internal fun SettingsSectionCard(content: @Composable ColumnScope.() -> Unit) =
+    SectionCard(color = MaterialTheme.colorScheme.settingsCardColor(), content = content)
+
+@Composable
+fun SectionCard(color: Color = MaterialTheme.colorScheme.surfaceContainerLow, content: @Composable ColumnScope.() -> Unit) {
+    Surface(shape = RoundedCornerShape(24.dp), color = color) {
         Column(Modifier.fillMaxWidth(), content = content)
     }
 }
@@ -55,7 +59,7 @@ fun SectionCard(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
     Text(title, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall)
-    SectionCard(content)
+    SettingsSectionCard(content)
     Spacer(Modifier.height(32.dp))
 }
 
@@ -79,8 +83,8 @@ fun originalTypography(weightIndex: Int): Typography {
         bodyLarge = defaults.bodyLarge.relativeHeight(), bodyMedium = defaults.bodyMedium.relativeHeight(), bodySmall = defaults.bodySmall.relativeHeight(),
         labelLarge = defaults.labelLarge.relativeHeight(), labelMedium = defaults.labelMedium.relativeHeight(), labelSmall = defaults.labelSmall.relativeHeight())
     if (weightIndex == 1) return base
-    val normal = FontWeight(300 + weightIndex.coerceIn(0, 4) * 100)
-    val bold = FontWeight(500 + weightIndex.coerceIn(0, 4) * 100)
+    val normal = FontWeight(300 + weightIndex.coerceIn(-2, 4) * 100)
+    val bold = FontWeight(500 + weightIndex.coerceIn(-2, 4) * 100)
     return base.copy(bodyLarge = base.bodyLarge.copy(fontWeight = normal), bodyMedium = base.bodyMedium.copy(fontWeight = normal), bodySmall = base.bodySmall.copy(fontWeight = normal),
         titleLarge = base.titleLarge.copy(fontWeight = bold), titleMedium = base.titleMedium.copy(fontWeight = bold), titleSmall = base.titleSmall.copy(fontWeight = bold),
         labelLarge = base.labelLarge.copy(fontWeight = normal), labelMedium = base.labelMedium.copy(fontWeight = normal), labelSmall = base.labelSmall.copy(fontWeight = normal),
@@ -90,20 +94,21 @@ fun originalTypography(weightIndex: Int): Typography {
 @Composable
 fun OriginalNavigation(selected: Int, dark: Boolean, onSelected: (Int) -> Unit) {
     val model = LocalState.current
+    model.revision
     val floating = model.store.bool("key_use_floating_nav_bar", true)
     val glass = floating && model.store.bool("key_use_liquid_glass_effect")
-    OriginalNavigationBar(selected, dark, floating, glass, onSelected)
+    OriginalNavigationBar(selected, dark, floating, glass, model.store.bool("translucentNavigationGlass", false), onSelected)
 }
 
 @Composable
-internal fun OriginalNavigationBar(selected: Int, dark: Boolean, floating: Boolean, glass: Boolean, onSelected: (Int) -> Unit) {
+internal fun OriginalNavigationBar(selected: Int, dark: Boolean, floating: Boolean, glass: Boolean, translucent: Boolean = true, onSelected: (Int) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val icons = listOf(Icons.Outlined.Forum, Icons.Outlined.DynamicFeed, Icons.Outlined.Notifications, Icons.Rounded.PersonOutline)
     val selectedIcons = listOf(Icons.Rounded.Forum, Icons.Rounded.DynamicFeed, Icons.Rounded.Notifications, Icons.Rounded.Person)
     val labels = listOf("进吧", "动态", "消息", "我的")
     val haptics = LocalHapticFeedback.current
     if (!floating) {
-        NavigationBar(containerColor = colors.background, tonalElevation = 0.dp, modifier = Modifier.navigationBarsPadding().height(80.dp), windowInsets = WindowInsets(0, 0, 0, 0)) {
+        NavigationBar(containerColor = colors.background, tonalElevation = 0.dp, modifier = Modifier.height(80.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()), windowInsets = WindowInsets.navigationBars) {
             labels.forEachIndexed { index, title -> NavigationBarItem(index == selected, tapFeedback { onSelected(index) },
                 icon = { Icon(if (index == selected) selectedIcons[index] else icons[index], title) }, label = { Text(title) },
                 colors = NavigationBarItemDefaults.colors(selectedIconColor = colors.onPrimaryContainer, unselectedIconColor = colors.onSurfaceVariant, selectedTextColor = colors.onSurface, unselectedTextColor = colors.onSurfaceVariant, indicatorColor = if (dark) colors.secondaryContainer else colors.primaryContainer)) }
@@ -216,7 +221,7 @@ internal fun OriginalNavigationBar(selected: Int, dark: Boolean, floating: Boole
                     },
                     velocity = { dragVelocity },
                     expansion = { pressure.value.coerceIn(0f, 1f) }, dark = dark,
-                    labels = labels, icons = icons, selectedIcons = selectedIcons, select = callback,
+                    labels = labels, icons = icons, selectedIcons = selectedIcons, select = callback, translucent = translucent,
                 )
                 return@Box
             }

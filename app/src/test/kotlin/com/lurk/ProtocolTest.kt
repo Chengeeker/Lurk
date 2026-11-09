@@ -6,6 +6,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ProtocolTest {
+    @Test fun postOwnershipRequiresIdentityRatherThanMatchingDisplayNames() {
+        val account = Account(JSONObject().put("uid", "1").put("name", "同名用户").put("portrait", "owner"))
+        assertFalse(ownsPost(account, Author("2", "同名用户", "other")))
+        assertFalse(ownsPost(account, Author("0", "同名用户")))
+        assertTrue(ownsPost(account, Author("1", "更改后的昵称")))
+        assertTrue(ownsPost(account, Author("", "其他昵称", "owner")))
+        assertFalse(ownsPost(null, Author("1", "同名用户", "owner")))
+    }
     @Test fun cardMergesVideoVariantsAndSummaryButKeepsDistinctVideoIds() {
         val thread = JSONObject("""{
             "id":"11171161623",

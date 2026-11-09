@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        if (android.os.Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
         incoming = intent?.dataString
         setContent { LurkApp(incoming) { incoming = null } }
     }
@@ -92,7 +93,7 @@ fun LurkApp(incoming: String?, consumeIncoming: () -> Unit) {
         surfaceContainer = Color(0xFF121212), surfaceContainerHigh = Color(0xFF181818), surfaceContainerHighest = Color(0xFF222222))
         else colors.copy(background = if (dark) Color(0xFF111215) else colors.surface)
     val density = LocalDensity.current
-    val scale = (model.fontSizePreview ?: model.store.int("key_font_size_percent", 100)).coerceIn(80, 140) / 100f
+    val scale = (model.fontSizePreview ?: model.store.int("key_font_size_percent", 100)).coerceIn(80, 150) / 100f
     val stack = remember { mutableStateListOf<Route>() }
     val savedPages = rememberSaveableStateHolder()
     val pageSessions = remember(model.accountGeneration) { mutableMapOf<String, PageSession>() }
@@ -143,7 +144,7 @@ fun LurkApp(incoming: String?, consumeIncoming: () -> Unit) {
         LocalGalleryOrigins provides origins, LocalBackdrop provides backdrop,
         LocalHapticFeedback provides haptics,
         LocalDensity provides remember(density, scale) { PreferenceDensity(density, scale) }, LocalRippleConfiguration provides null) {
-        MaterialTheme(colorScheme = scheme, typography = originalTypography(model.store.int("key_font_weight_index", 1))) {
+        MaterialTheme(colorScheme = scheme, typography = originalTypography(if (model.store.bool("key_use_custom_font_weight", model.store.int("key_font_weight_index", 1) != 1)) model.store.int("key_font_weight_index", 1) else 1)) {
             CompositionLocalProvider(LocalOriginalCardColor provides (if (dark && model.store.bool("key_is_pure_black_dark")) Color(0xFF121212) else scheme.surfaceContainerLow), LocalDividerColor provides (if (dark && model.store.bool("key_is_pure_black_dark")) Color.White.copy(alpha = .1f) else scheme.outlineVariant.copy(alpha = if (dark) .2f else .3f)), LocalTextStyle provides MaterialTheme.typography.bodyMedium, androidx.compose.foundation.LocalIndication provides NoPressIndication) {
             Surface(Modifier.fillMaxSize()) {
                 if (!model.ready) Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
@@ -210,7 +211,7 @@ fun PageBar(title: String, back: (() -> Unit)? = null, titleSize: androidx.compo
     val model = LocalState.current
     val colors = MaterialTheme.colorScheme
     val goToTop = tapFeedback { page.commands.tryEmit(false) }
-    TopAppBar(title = { Text(title, Modifier.padding(start = if (back != null) 8.dp else 0.dp), maxLines = 1, fontSize = titleSize, fontWeight = titleWeight ?: FontWeight(500 + model.store.int("key_font_weight_index", 1).coerceIn(0, 4) * 100)) }, expandedHeight = 56.dp,
+    TopAppBar(title = { Text(title, Modifier.padding(start = if (back != null) 8.dp else 0.dp), maxLines = 1, fontSize = titleSize, fontWeight = titleWeight ?: FontWeight(500 + (if (model.store.bool("key_use_custom_font_weight", model.store.int("key_font_weight_index", 1) != 1)) model.store.int("key_font_weight_index", 1) else 1).coerceIn(-2, 4) * 100)) }, expandedHeight = 56.dp,
         colors = TopAppBarDefaults.topAppBarColors(containerColor = if (frosted) Color.Transparent else colors.background),
         modifier = (if (LocalFrostedHeader.current || !frosted) Modifier else Modifier.frostedTint(colors.background, colors.outlineVariant)).pointerInput(page) { detectTapGestures(onDoubleTap = { if (model.store.bool("key_habit_double_tap_top", true)) goToTop() }) }, navigationIcon = {
         if (back != null) IconButton(onClick = tapFeedback(back)) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回") }

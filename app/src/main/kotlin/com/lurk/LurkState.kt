@@ -16,6 +16,13 @@ import org.json.JSONObject
 import java.util.Calendar
 import java.util.TimeZone
 
+internal suspend fun optimisticAgreement(previous: Pair<Boolean, Int>, publish: (Pair<Boolean, Int>) -> Unit, write: suspend (Boolean) -> Unit) {
+    val next = !previous.first to (previous.second + if (previous.first) -1 else 1).coerceAtLeast(0)
+    publish(next)
+    try { write(next.first) }
+    catch (e: Exception) { publish(previous); throw e }
+}
+
 class LurkState(app: Application) : AndroidViewModel(app) {
     val store = AppStore(app)
     var ready by mutableStateOf(false)

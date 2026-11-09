@@ -307,9 +307,13 @@ class NavigationAppearanceTest {
             }
         }
         val rest = compose.onRoot().captureToImage().asAndroidBitmap()
+        // A held water lens samples motion every frame; advance it explicitly instead of waiting for idle.
+        compose.mainClock.autoAdvance = false
         compose.runOnIdle { active = true }
+        compose.mainClock.advanceTimeByFrame()
         val drag = compose.onRoot().captureToImage().asAndroidBitmap()
         compose.runOnIdle { background = Color(0xFFB80019) }
+        compose.mainClock.advanceTimeByFrame()
         val live = compose.onRoot().captureToImage().asAndroidBitmap()
         val sampleX = live.width / 2
         val sampleY = (live.height * .65f).toInt()

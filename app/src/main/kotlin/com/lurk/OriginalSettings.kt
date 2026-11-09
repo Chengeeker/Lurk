@@ -50,7 +50,7 @@ fun OriginalSettingsHome(back: () -> Unit) {
         PageBar("设置", back, titleWeight = FontWeight.SemiBold)
         Column(Modifier.verticalScroll(rememberPageScrollState()).padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text("偏好与功能", Modifier.padding(start = 16.dp, bottom = 12.dp), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            SectionCard {
+            SettingsSectionCard {
                 SettingsRow("个性化", Icons.Outlined.Palette) { open(Route("settings", "appearance")) }
                 SettingsRow("屏蔽设置", Icons.Rounded.Block) { open(Route("settings", "block")) }
                 SettingsRow("使用习惯", Icons.Rounded.Tune) { open(Route("settings", "habits")) }
@@ -61,7 +61,7 @@ fun OriginalSettingsHome(back: () -> Unit) {
             }
             Spacer(Modifier.height(32.dp))
             Text("账号设置", Modifier.padding(start = 16.dp, bottom = 12.dp), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            SectionCard {
+            SettingsSectionCard {
                 val account = model.account
                 if (account != null) {
                     ListItem(headlineContent = { Text(account.name) }, supportingContent = { Text("UID: ${account.uid}", fontSize = 13.sp) },
@@ -77,7 +77,7 @@ fun OriginalSettingsHome(back: () -> Unit) {
             }
             Spacer(Modifier.height(32.dp))
             Text("关于与支持", Modifier.padding(start = 16.dp, bottom = 12.dp), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            SectionCard { SettingsRow("关于 Lurk", Icons.Outlined.Info) { about = true } }
+            SettingsSectionCard { SettingsRow("关于 Lurk", Icons.Outlined.Info) { about = true } }
         }
     }
     if (checking) androidx.compose.ui.window.Dialog(onDismissRequest = {}) { Card { Row(Modifier.padding(horizontal = 28.dp, vertical = 20.dp), verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(); Spacer(Modifier.width(18.dp)); Text("正在检测凭据有效性...", fontSize = 14.sp) } } }
@@ -157,34 +157,29 @@ fun OriginalAppearance(back: () -> Unit) {
     Column {
         PageBar("个性化", back, frosted = false)
         Column(Modifier.verticalScroll(rememberPageScrollState()).padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 24.dp)) {
-            Section("明暗模式") {
-                listOf("跟随系统", "浅色模式", "深色模式").forEachIndexed { index, name ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).feedbackClickable { model.setting("key_theme_mode", index) }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) { RadioButton(model.store.int("key_theme_mode") == index, tapFeedback { model.setting("key_theme_mode", index) }, Modifier.size(40.dp)) }; Spacer(Modifier.width(16.dp)); Text(name, fontSize = 16.sp)
-                    }
-                }
-                OriginalSwitch("纯黑深色模式 (OLED 省电)", "key_is_pure_black_dark", Icons.Rounded.Contrast)
+            AppearanceModes(model.store.int("key_theme_mode"), { model.setting("key_theme_mode", it) },
+                model.store.bool("key_is_pure_black_dark"), { model.setting("key_is_pure_black_dark", it) })
+            Spacer(Modifier.height(16.dp))
+            AppearancePalette(model.store.bool("key_use_dynamic_color"), { model.setting("key_use_dynamic_color", it) },
+                model.store.int("key_theme_color_index"), { model.setting("key_theme_color_index", it) }, seeds, names)
+            Spacer(Modifier.height(16.dp))
+            FontWeightSetting(model.store.bool("key_use_custom_font_weight", model.store.int("key_font_weight_index", 1) != 1),
+        (model.store.int("key_font_weight_index", 1) - 1) * 100, "Lurk", hapticsEnabled = model.store.bool("key_enable_haptics", true),
+        onReset = { model.setting("key_use_custom_font_weight", false) },
+        onCommit = { model.setting("key_font_weight_index", it / 100 + 1); model.setting("key_use_custom_font_weight", true) })
+    Spacer(Modifier.height(16.dp))
+            FontSizeSetting(model.store.int("key_font_size_percent", 100) / 100f) { model.setting("key_font_size_percent", kotlin.math.round(it * 100).toInt()) }
+            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
+            AppearanceSection("底部导航") { OriginalSwitch("使用悬浮底栏", "key_use_floating_nav_bar", Icons.Rounded.Dock, true) }
+            Spacer(Modifier.height(16.dp))
+            AppearanceSection("显示效果") { OriginalSwitch("使用液态玻璃效果", "key_use_liquid_glass_effect", Icons.Rounded.BlurOn, subtitle = "用于图片画廊按钮；悬浮底栏需同时开启悬浮样式")
+                if(model.store.bool("key_use_liquid_glass_effect") && model.store.bool("key_use_floating_nav_bar", true)) NavigationGlassChoice(model.store.bool("translucentNavigationGlass", false), hapticsEnabled = model.store.bool("key_enable_haptics", true)) { model.setting("translucentNavigationGlass", it) }
             }
-            Section("色彩方案") {
-                OriginalSwitch("动态取色", "key_use_dynamic_color", Icons.Outlined.AutoAwesome)
-                if (!model.store.bool("key_use_dynamic_color")) {
-                    Text("预置主题配色搭配", Modifier.padding(start = 16.dp, top = 12.dp, bottom = 10.dp), fontSize = 14.sp)
-                    FlowRow(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        names.forEachIndexed { index, name -> FilterChip(model.store.int("key_theme_color_index") == index, tapFeedback { model.setting("key_theme_color_index", index) }, label = { Text(name) }, leadingIcon = { Box(Modifier.size(20.dp).background(Color(seeds[index]), CircleShape)) }) }
-                    }
-                }
-            }
-            Section("字体粗细") { OriginalChoice("自定义应用字体粗细", "选择字体粗细", Icons.Rounded.FormatBold, "key_font_weight_index", listOf("偏细", "默认", "中等", "偏粗", "加粗"), "当前：", 1) }
-            Section("字体大小") {
-                var size by remember { mutableFloatStateOf(model.store.int("key_font_size_percent", 100).toFloat()) }
-                ListItem(headlineContent = { Text("应用字体大小", fontSize = 16.sp) }, leadingContent = { Icon(Icons.Rounded.FormatSize, null) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent), supportingContent = {
-                    Column { Text("${size.toInt()}%"); OriginalFontSlider(size, { size = it; model.fontSizePreview = it.toInt() }, { model.setting("key_font_size_percent", size.toInt()) }) }
-                })
-            }
-            Section("导航布局风格") { OriginalSwitch("悬浮胶囊底栏 (MD3 Expressive)", "key_use_floating_nav_bar", Icons.Rounded.Dock, true) }
-            Section("显示效果") { OriginalSwitch("使用液态玻璃效果", "key_use_liquid_glass_effect", Icons.Rounded.BlurOn, subtitle = "用于图片画廊按钮；悬浮底栏需同时开启悬浮样式") }
-            Section("屏幕显示") { SettingsRow("屏幕帧率设置", Icons.Rounded.Speed) { open(Route("settings", "display")) } }
-            Section("触感与震动") { OriginalSwitch("触感与震动反馈", "key_enable_haptics", Icons.Rounded.Vibration, true) }
+            Spacer(Modifier.height(16.dp))
+            AppearanceSection("屏幕显示") { SettingsRow("屏幕帧率设置", Icons.Rounded.Speed) { open(Route("settings", "display")) } }
+            Spacer(Modifier.height(16.dp))
+            AppearanceSection("触感与震动") { OriginalSwitch("触感与震动反馈", "key_enable_haptics", Icons.Rounded.Vibration, true) }
         }
     }
 }
@@ -199,7 +194,7 @@ fun OriginalStorage(back: () -> Unit) {
     Column {
         PageBar("存储设置", back, frosted = false)
         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-            SectionCard {
+            SettingsSectionCard {
                 SettingsRow("图片存储路径", Icons.Outlined.Image, summary(model.store.int("key_image_save_path_type"))) { selected = false }
                 SettingsRow("视频存储路径", Icons.Outlined.VideoLibrary, summary(model.store.int("key_video_save_path_type"))) { selected = true }
             }
@@ -229,7 +224,7 @@ fun OriginalDisplay(back: () -> Unit) {
         PageBar("屏幕帧率设置", back, titleWeight = FontWeight.SemiBold)
         Column(Modifier.verticalScroll(rememberPageScrollState()).padding(horizontal = 16.dp, vertical = 12.dp)) {
             Text("没有生效？重启app试试", Modifier.padding(start = 16.dp, bottom = 16.dp), fontSize = 13.5.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.primary.copy(alpha = .85f))
-            SectionCard {
+            SettingsSectionCard {
                 (listOf(0 to "自动") + modes.map { it.modeId to "#${it.modeId} ${it.physicalWidth}x${it.physicalHeight} @ ${it.refreshRate.toInt()}Hz" }).forEach { (id, name) ->
                     Row(Modifier.fillMaxWidth().feedbackClickable { model.setting("key_selected_display_mode_id", id) }.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(name, Modifier.weight(1f), fontSize = 16.sp, color = if (selected == id) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)

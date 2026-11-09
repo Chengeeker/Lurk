@@ -16,13 +16,14 @@ import androidx.compose.ui.graphics.layer.*
 import androidx.compose.ui.layout.*
 import androidx.compose.ui.unit.*
 
-class BackdropSource(val layer: GraphicsLayer) { var offset by mutableStateOf(Offset.Zero); var coordinates: LayoutCoordinates? = null; var underlay: BackdropSource? = null }
+class BackdropSource(val layer: GraphicsLayer) { var revision = 0L; var offset by mutableStateOf(Offset.Zero); var coordinates: LayoutCoordinates? = null; var underlay: BackdropSource? = null }
 val LocalBackdrop = staticCompositionLocalOf<BackdropSource?> { null }
 @Composable
 fun rememberBackdrop(flatten: Boolean = false): BackdropSource { val layer = rememberGraphicsLayer(); layer.compositingStrategy = if (flatten) androidx.compose.ui.graphics.layer.CompositingStrategy.Offscreen else androidx.compose.ui.graphics.layer.CompositingStrategy.Auto; return remember(layer) { BackdropSource(layer) } }
 fun Modifier.backdropSource(source: BackdropSource) = onGloballyPositioned { source.coordinates = it; source.offset = it.positionInWindow() }.drawWithContent {
     source.layer.record { this@drawWithContent.drawContent() }
     drawLayer(source.layer)
+    source.revision++
 }
 
 // Record commands on the GPU; overscan the blur kernel before sampling the local lens.

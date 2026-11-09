@@ -20,7 +20,7 @@ class AppStore(val context: Context) {
     @Volatile var bookmarkVersion = 0L
     private val prefs = context.getSharedPreferences("lurk_compose", Context.MODE_PRIVATE)
     private val secrets = context.getSharedPreferences("lurk_compose_secrets", Context.MODE_PRIVATE)
-    private val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+    private val keyStore by lazy { KeyStore.getInstance("AndroidKeyStore").apply { load(null) } }
     var importError: String? = null
         private set
 

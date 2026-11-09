@@ -78,7 +78,11 @@ internal fun GalleryThumbnail(
 }
 
 @Composable
-private fun GalleryIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, glass: Boolean, click: () -> Unit) {
+internal fun GalleryIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, glass: Boolean, click: () -> Unit) {
+    if (!glass) {
+        PlainGalleryControl(description, true, tapFeedback(click)) { Icon(icon, null, Modifier.size(24.dp), tint = Color.White) }
+        return
+    }
     val source = LocalBackdrop.current
     val context = LocalContext.current
     val optics = if (glass && android.os.Build.VERSION.SDK_INT >= 33 && source != null) {
@@ -106,9 +110,6 @@ private fun GalleryIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, d
         if (glass && android.os.Build.VERSION.SDK_INT >= 33 && source != null && optics != null) {
             ReferenceGalleryGlass(source, optics, press, Modifier.matchParentSize())
         } else if (glass) Box(Modifier.matchParentSize().clip(CircleShape).backdrop(2f, material = LiquidMaterial(thickness = 32f, index = 1.24f, dispersion = .025f, tint = Color(0x66000000))))
-        else Box(Modifier.size(44.dp).shadow(4.dp, CircleShape).clip(CircleShape).backdrop(2.5f, galleryButton = true)
-            .background(Brush.linearGradient(listOf(Color(0xFFE0E0E0).copy(alpha = .30f), Color(0xFF9E9E9E).copy(alpha = .20f), Color(0xFF424242).copy(alpha = .36f))))
-            .border(1.dp, Color.White.copy(alpha = .34f), CircleShape))
         IconButton(onClick = tapFeedback { click() }, modifier = Modifier.fillMaxSize()) { Icon(icon, description, Modifier.size(22.dp), tint = Color.White) }
     }
 }
@@ -430,15 +431,15 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
             val thumbnailAlpha by animateFloatAsState(if (controls && !opening && !returning) 1f else 0f, tween(160, easing = CubicBezierEasing(0f, 0f, .58f, 1f)), label = "thumbnail visibility")
             if (playerMounted && !fullscreen && !(glass && (opening || returning))) {
                 if (media.size > 1) {
-                    val thumbWidth = with(density) { ((width - 24.dp.toPx()) * .16f).toDp() }
-                    HorizontalPager(thumbnails, flingBehavior = rememberGalleryThumbnailFling(thumbnails), userScrollEnabled = controls && !opening && !returning, pageSize = PageSize.Fixed(thumbWidth), contentPadding = PaddingValues(horizontal = with(density) { ((width - 24.dp.toPx()) * .42f).toDp() }), modifier = Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = thumbBottom).fillMaxWidth().height(64.dp).graphicsLayer { alpha = thumbnailAlpha * motion.position }) { index ->
+                    val thumbWidth = with(density) { (width * .16f).toDp() }
+                    HorizontalPager(thumbnails, flingBehavior = rememberGalleryThumbnailFling(thumbnails), userScrollEnabled = controls && !opening && !returning, pageSize = PageSize.Fixed(thumbWidth), contentPadding = PaddingValues(horizontal = with(density) { (width * .42f).toDp() }), modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = thumbBottom).fillMaxWidth().height(64.dp).graphicsLayer { alpha = thumbnailAlpha * motion.position }) { index ->
                         val item = media[index]; val selected = pager.currentPage == index
-                        Box(Modifier.fillMaxSize().padding(horizontal = 3.dp, vertical = 2.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(8.dp)).feedbackClickable(enabled = controls && !opening && !returning) { scrollOwner = 0; frozenThumbBottom = null; zoomed = false; pager.requestScrollToPage(index); thumbnails.requestScrollToPage(index) }) { AsyncImage(mediaRequest(context, item.thumbnail.ifEmpty { item.original }, 160), "第 ${index + 1} 项", Modifier.fillMaxSize().padding(2.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop); if (item.isVideo) Icon(Icons.Rounded.PlayCircleFilled, null, Modifier.align(Alignment.Center).size(28.dp), tint = Color.White); if (!selected) Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = .3f))) }
+                        Box(Modifier.fillMaxSize().padding(horizontal = 3.dp, vertical = 2.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(8.dp)).feedbackClickable(enabled = controls && !opening && !returning) { scrollOwner = 0; frozenThumbBottom = null; zoomed = false; pager.requestScrollToPage(index); thumbnails.requestScrollToPage(index) }) { AsyncImage(mediaRequest(context, item.thumbnail.ifEmpty { item.original }, 160), "第 ${index + 1} 项", Modifier.fillMaxSize().padding(2.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop); if (item.isVideo) Icon(Icons.Rounded.PlayCircleFilled, null, Modifier.align(Alignment.Center).size(28.dp), tint = Color.White); if (!selected) Box(Modifier.matchParentSize().padding(2.dp).clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = .5f))) }
                     }
                 }
-                if (controls && !opening && !returning) Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.width(96.dp)) { GalleryIcon(Icons.Rounded.Close, "关闭", glass, ::dismiss) }
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { if (media.size > 1) Text("${pager.currentPage + 1} / ${media.size}", Modifier.background(Color.Black.copy(alpha = .55f), RoundedCornerShape(20.dp)).border(.8.dp, Color.White.copy(alpha = .25f), RoundedCornerShape(20.dp)).padding(horizontal = 14.dp, vertical = 6.dp), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp) }
+                if (controls && !opening && !returning) Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(96.dp)) { GalleryIcon(Icons.Rounded.ArrowBack, "关闭", glass, ::dismiss) }
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { Text("${pager.currentPage + 1} / ${media.size}", Modifier.background(Color.Black.copy(alpha = .45f), RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 6.dp), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
                     Row(Modifier.width(96.dp), horizontalArrangement = Arrangement.End) { val item = media[pager.currentPage].let { if (it.isVideo) it.copy(video = currentVideo) else it }; GalleryIcon(Icons.Rounded.Download, if (!item.isVideo) "保存图片" else "保存视频", glass, { save(item) }) }
                 }
             }

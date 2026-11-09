@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -47,72 +48,31 @@ internal fun Modifier.navigationLensPlacement(rect: Rect, density: Density) =
 @Composable
 internal fun LiquidNavigationContent(
     position: () -> Float, velocity: () -> Float, expansion: () -> Float, dark: Boolean,
-    labels: List<String>, icons: List<ImageVector>, selectedIcons: List<ImageVector>, select: (Int) -> Unit,
+    labels: List<String>, icons: List<ImageVector>, selectedIcons: List<ImageVector>, translucent: Boolean = false, select: (Int) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val page = LocalBackdrop.current
-    if (android.os.Build.VERSION.SDK_INT >= 33 && page != null) {
-        val context = LocalContext.current
-        val optics = remember(context) { runCatching { GlassOptics(context) to GlassOptics(context) }.getOrNull() }
-        if (optics != null) {
-            val regular = rememberGraphicsLayer()
-            val selected = rememberGraphicsLayer()
-            BoxWithConstraints(Modifier.fillMaxSize()) {
-                val width = maxWidth
-                val height = maxHeight
-                Box(Modifier.requiredSize(width + 40.dp, height + 30.dp).align(Alignment.Center)) {
-                    for (isSelected in listOf(false, true)) {
-                        val layer = if (isSelected) selected else regular
-                        Box(Modifier.matchParentSize().then(if (isSelected) Modifier.clearAndSetSemantics {} else Modifier)
-                            .drawWithContent { layer.record { this@drawWithContent.drawContent() } },
-                            contentAlignment = Alignment.Center) {
-                            NavigationLabels(Modifier.size(width, height), isSelected, expansion, dark, labels, icons, selectedIcons, select)
-                        }
-                    }
-                    ReferenceNavigationGlass(page, optics.first, optics.second, regular, selected, position,
-                        velocity, expansion, dark, colors.background, Modifier.matchParentSize())
+    if (page == null) {
+        NavigationLabels(Modifier.fillMaxSize(), false, expansion, dark, labels, icons, selectedIcons, select)
+        return
+    }
+    val regular = rememberGraphicsLayer()
+    val selected = rememberGraphicsLayer()
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val width = maxWidth
+        val height = maxHeight
+        Box(Modifier.requiredSize(width + 40.dp, height + 30.dp).align(Alignment.Center)) {
+            for (isSelected in listOf(false, true)) {
+                val layer = if (isSelected) selected else regular
+                Box(Modifier.matchParentSize().then(if (isSelected) Modifier.clearAndSetSemantics {} else Modifier)
+                    .drawWithContent { layer.record { this@drawWithContent.drawContent() } }, contentAlignment = Alignment.Center) {
+                    NavigationLabels(Modifier.size(width, height), isSelected, expansion, dark, labels, icons, selectedIcons, select)
                 }
             }
-            return
+            NavigationGlassMaterial(page.layer, { page.coordinates?.positionInRoot() ?: Offset.Zero }, { page.revision },
+                regular, selected, position(), expansion(), dark, colors.background,
+                translucent, labels.size, Modifier.matchParentSize())
         }
-    }
-    // Flatten only the small bar layers before the moving lens samples their shaders.
-    val track = rememberBackdrop(flatten = true)
-    val content = rememberBackdrop(flatten = true)
-    track.underlay = page
-    content.underlay = page
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-        val density = LocalDensity.current
-        val fraction = expansion()
-        val rect = navigationLensRect(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat(), position(), fraction, velocity(), density.density)
-        val rest = 1f - fraction
-        val pinch = .7f * (1f - (1f - fraction).pow(2))
-        fun Modifier.at(r: Rect) = navigationLensPlacement(r, density)
-        Box(Modifier.fillMaxSize().backdropSource(content)) {
-            Box(Modifier.fillMaxSize().backdropSource(track)) {
-                Box(Modifier.fillMaxSize().then(if (dark) Modifier else Modifier.shadow(.55.dp, RoundedCornerShape(50)))
-                    .clip(RoundedCornerShape(50)).backdrop(2f, material = LiquidMaterial(
-                        tint = if (dark) Color(0x66000000) else Color(0xF0FFFFFF), rimLight = if (dark) 0f else 1f)))
-            }
-            if (rest > 0f) CompositionLocalProvider(LocalBackdrop provides track) {
-                Box(Modifier.at(rect).graphicsLayer { alpha = rest }.clip(RoundedCornerShape(50)).backdrop(6f)
-                    .background(if (dark) Color(0x26FFFFFF) else Color(0x26000000)))
-            }
-            for (selected in listOf(false, true)) {
-                NavigationLabels(Modifier.fillMaxSize().then(if (selected) Modifier.clearAndSetSemantics {} else Modifier)
-                    .lensClip(rect, inverse = !selected), selected, expansion, dark, labels, icons, selectedIcons, select)
-            }
-        }
-        // The moving lens must sample the merged track AND glyphs, never the page alone.
-        // Keep the shader/node alive across presses instead of constructing it on the long-press frame.
-        CompositionLocalProvider(LocalBackdrop provides content) {
-            Box(Modifier.at(rect).graphicsLayer { alpha = fraction }.clip(RoundedCornerShape(50)).backdrop(0f, material = LiquidMaterial(
-                thickness = 20f, index = 1.18f, dispersion = .025f,
-                tint = if (dark) Color(0x26FFFFFF) else Color(0x18000000), light = .5f,
-                rimShade = if (dark) 0f else .12f, rimLight = if (dark) 0f else .35f,
-                visibility = fraction, pinch = pinch)))
-        }
-        if (!dark) Box(Modifier.fillMaxSize().border(1.dp, Color(0xF5FFFFFF), RoundedCornerShape(50)))
     }
 }
 

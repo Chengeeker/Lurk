@@ -75,7 +75,7 @@ fun OriginalCache(back: () -> Unit) {
     Column {
         PageBar("缓存管理", back, frosted = false)
         Column(Modifier.verticalScroll(rememberPageScrollState()).padding(horizontal = 16.dp, vertical = 12.dp)) {
-            SectionCard {
+            SettingsSectionCard {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.CleaningServices, null, Modifier.size(32.dp), tint = colors.primary); Spacer(Modifier.height(12.dp))
                     if (loading) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.5.dp) else Text(if (failed) "暂不可用" else formatBytes(stats.total), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
@@ -98,14 +98,14 @@ fun OriginalCache(back: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(16.dp))
-            SectionCard { Box(Modifier.padding(16.dp)) { Button(onClick = tapFeedback { clear = true }, enabled = !loading && !model.writing, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(12.dp)) { Icon(Icons.Rounded.DeleteSweep, null); Spacer(Modifier.width(8.dp)); Text(if (model.writing) "正在清理..." else "一键清理所有缓存") } } }
+            SettingsSectionCard { Box(Modifier.padding(16.dp)) { Button(onClick = tapFeedback { clear = true }, enabled = !loading && !model.writing, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), shape = RoundedCornerShape(12.dp)) { Icon(Icons.Rounded.DeleteSweep, null); Spacer(Modifier.width(8.dp)); Text(if (model.writing) "正在清理..." else "一键清理所有缓存") } } }
             Spacer(Modifier.height(24.dp)); PreferenceHeading("自动清理规则"); Spacer(Modifier.height(4.dp))
-            SectionCard {
+            SettingsSectionCard {
                 ListItem(headlineContent = { Text("自动清理缓存阈值", style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp)) }, supportingContent = { Text("启动时达到阈值后自动清理") }, leadingContent = { Icon(Icons.Outlined.AutoDelete, null) }, trailingContent = { Text(thresholdLabel(threshold), color = colors.primary, fontWeight = FontWeight.SemiBold) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent), modifier = Modifier.feedbackClickable { thresholdDialog = true })
                 OriginalSwitch("退出时自动清理缓存", "key_auto_clear_cache_on_exit", Icons.Rounded.ExitToApp)
             }
             Spacer(Modifier.height(24.dp)); PreferenceHeading("清理范围"); Spacer(Modifier.height(4.dp))
-            SectionCard { Text("清理范围包括图片内存与磁盘缓存，以及 Android 应用缓存目录。分类按文件名和扩展名估算。不会清除账号凭据、收藏、浏览记录或保存到系统相册的媒体。", Modifier.padding(16.dp), fontSize = 13.sp, lineHeight = 1.45.em, color = colors.onSurfaceVariant) }
+            SettingsSectionCard { Text("清理范围包括图片内存与磁盘缓存，以及 Android 应用缓存目录。分类按文件名和扩展名估算。不会清除账号凭据、收藏、浏览记录或保存到系统相册的媒体。", Modifier.padding(16.dp), fontSize = 13.sp, lineHeight = 1.45.em, color = colors.onSurfaceVariant) }
             Spacer(Modifier.height(32.dp))
         }
     }
