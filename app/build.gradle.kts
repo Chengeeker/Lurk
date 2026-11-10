@@ -10,7 +10,7 @@ android {
         applicationId = "com.lurk"
         minSdk = 24
         targetSdk = 36
-        versionCode = 96
+        versionCode = 98
         // Keep the public version at 3.0.0 until 1:1 parity is confirmed.
         versionName = "3.0.0"
         ndk { abiFilters += "arm64-v8a" }

@@ -82,10 +82,12 @@ class FilterScrollTest {
         val horizontal = tabs.value
         compose.onNodeWithText("分类8").performClick()
         compose.waitForIdle()
+        compose.onNodeWithText("正在刷新...").assertDoesNotExist()
         assertEquals(before, compose.onNodeWithText("分类8").fetchSemanticsNode().boundsInRoot)
         assertEquals(horizontal, tabs.value)
         compose.runOnIdle { next.complete(emptyList<String>() to false) }
         compose.waitForIdle()
+        compose.onNodeWithText("刷新成功").assertDoesNotExist()
         assertEquals(before, compose.onNodeWithText("分类8").fetchSemanticsNode().boundsInRoot)
         assertEquals(horizontal, tabs.value)
     }

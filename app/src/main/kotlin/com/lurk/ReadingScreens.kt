@@ -225,9 +225,11 @@ fun <T> PagedContent(
     var updated by remember(identity, reloadKey) { mutableLongStateOf(System.currentTimeMillis()) }
     var error by remember(identity, reloadKey) { mutableStateOf<String?>(null) }
     val currentLoad by rememberUpdatedState(load)
-    fun fetch(refresh: Boolean) {
+    fun fetch(refresh: Boolean, showPullIndicator: Boolean = true) {
         if (busy) return
-        busy = true; refreshing = refresh && page > 0; error = null
+        busy = true
+        refreshing = showPullIndicator && refresh && page > 0
+        error = null
         scope.launch {
             try {
                 val target = if (refresh) 1 else page + 1
@@ -246,7 +248,7 @@ fun <T> PagedContent(
     // Keep rows and scroll anchors mounted until the new filter replaces page one.
     LaunchedEffect(identity, reloadKey) {
         if (loadedKey != reloadKey) targetLocated = true
-        if (page == 0 || loadedKey != reloadKey) fetch(true)
+        if (page == 0 || loadedKey != reloadKey) fetch(refresh = true, showPullIndicator = false)
     }
     val session = LocalPage.current
     val invalidation = session.invalidation
@@ -281,7 +283,14 @@ fun <T> PagedContent(
         item {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (busy) { if (page == 0) CircularProgressIndicator() else OriginalRefreshIndicator(ClassicPhase.Loading, updated, footer = true) }
-                error?.let { OriginalRefreshIndicator(ClassicPhase.Failed, updated, footer = true); Text(it); TextButton(onClick = tapFeedback { fetch(page == 0 || loadedKey != reloadKey) }) { Text("重试") } }
+                error?.let {
+                    OriginalRefreshIndicator(ClassicPhase.Failed, updated, footer = true)
+                    Text(it)
+                    TextButton(onClick = tapFeedback {
+                        val switching = loadedKey != reloadKey
+                        fetch(refresh = page == 0 || switching, showPullIndicator = !switching)
+                    }) { Text("重试") }
+                }
                 if (!busy && error == null) {
                     if (values.isEmpty()) { Text(emptyMessage, color = MaterialTheme.colorScheme.outline); if (more) TextButton(onClick = tapFeedback { fetch(false) }) { Text("加载更多") } }
                     else if (more) {

@@ -1,6 +1,7 @@
 package com.lurk
 
 import android.os.Build
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.draw.clipToBounds
@@ -108,7 +109,12 @@ val LocalFrostedHeader = staticCompositionLocalOf { false }
 fun FrostedFrame(headerHeight: Dp = 56.dp, header: @Composable () -> Unit, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     val backdrop = rememberBackdrop(); val colors = androidx.compose.material3.MaterialTheme.colorScheme
     Box(Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalContentTop provides (headerHeight + WindowInsets.statusBars.asPaddingValues().calculateTopPadding())) { androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().backdropSource(backdrop), content = content) }
+        CompositionLocalProvider(LocalContentTop provides (headerHeight + WindowInsets.statusBars.asPaddingValues().calculateTopPadding())) {
+            Column(
+                Modifier.fillMaxSize().backdropSource(backdrop).background(colors.background),
+                content = content,
+            )
+        }
         CompositionLocalProvider(LocalBackdrop provides backdrop, LocalFrostedHeader provides true) {
             Box(Modifier.fillMaxWidth().clipToBounds().backdrop(20f).frostedTint(colors.background, colors.outlineVariant)) { header() }
         }

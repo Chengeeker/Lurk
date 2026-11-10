@@ -4,7 +4,7 @@
 
 ## 构建与检查
 
-安装 JDK 17 和 Android SDK 37.2。在 Android Studio 打开仓库根目录，或在本地通过 `local.properties` 设置 `sdk.dir`。
+构建使用 JDK 21 和 Android SDK 37.2。在 Android Studio 打开仓库根目录，或在本地通过 `local.properties` 设置 `sdk.dir`。
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
