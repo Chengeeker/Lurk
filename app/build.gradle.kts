@@ -10,9 +10,9 @@ android {
         applicationId = "com.lurk"
         minSdk = 24
         targetSdk = 36
-        versionCode = 98
-        // Keep the public version at 3.0.0 until 1:1 parity is confirmed.
-        versionName = "3.0.0"
+        versionCode = 99
+        // Resume normal patch versions after the approved Compose release.
+        versionName = "3.0.1"
         ndk { abiFilters += "arm64-v8a" }
     }
     compileOptions {
