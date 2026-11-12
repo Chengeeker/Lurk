@@ -136,8 +136,13 @@ class LurkState(app: Application) : AndroidViewModel(app) {
         account?.let { withContext(Dispatchers.IO) { store.migrateBookmarks(it.uid) } }
     }
     fun login(cookie: String, done: () -> Unit) = action(requireLogin = false) { _, _ ->
-        val a = NativeApi().login(cookie)
-        withContext(Dispatchers.IO) { store.saveAccounts(store.accounts().filterNot { it.uid == a.uid } + a, a.uid) }
+        try { withContext(Dispatchers.IO) { store.login(cookie) } }
+        catch (e: CancellationException) { throw e }
+        catch (e: Exception) {
+            message(if (e is ApiFailure || e is SecretReadFailure || e is IllegalArgumentException || e is IllegalStateException)
+                e.message ?: "登录未完成，请重试" else "登录同步失败，原账号资料已保留，请重试")
+            return@action
+        }
         reloadAccount(); done(); message("登录成功")
     }
     fun logout(uid: String) = action { _, _ ->

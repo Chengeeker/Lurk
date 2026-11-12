@@ -94,6 +94,45 @@ class AppStore(val context: Context, private val keyProvider: ((Boolean)->Secret
         saveSecret("accounts", JSONObject().put("accounts", list).put("active", active).toString())
     }
 
+    suspend fun login(cookie: String, verify: suspend (String) -> Account = { NativeApi().login(it) }) {
+        val before = synchronized(this) { prefs.all.toMap() }
+        val oldSecrets = synchronized(this) { secrets.all.toMap() }
+        val verified = verify(cookie)
+        require(verified.uid.isNotBlank() && verified.uid != "0" && verified.bduss.isNotBlank()) { "登录凭据无效" }
+        validatedAccounts(JSONArray().put(verified.raw.toString()), verified.uid)
+        kotlinx.coroutines.currentCoroutineContext().ensureActive()
+        synchronized(this) {
+            check(prefs.all == before && secrets.all == oldSecrets) { "账号或设置已改变，请重新登录" }
+            val existing = try { accounts() } catch (failure: SecretReadFailure) {
+                if (!failure.recoverable) throw failure
+                listOf("lurk_compose", "lurk_compose_secrets").forEach { name ->
+                    val source = java.io.File(context.applicationInfo.dataDir, "shared_prefs/$name.xml")
+                    if (source.exists()) archiveEncryptedFile(context, source)
+                }
+                emptyList()
+            }
+            val accounts = existing.filterNot { it.uid == verified.uid } + verified
+            val encoded = encodeSecret(JSONObject().put("accounts", JSONArray(accounts.map { it.raw.toString() }))
+                .put("active", verified.uid).toString())
+            try { putAll(mapOf("_secret_accounts" to encoded, "compose_import_done" to true)) }
+            catch (failure: Exception) {
+                try {
+                    val rollback = prefs.edit()
+                    listOf("_secret_accounts", "compose_import_done").forEach { name ->
+                        when (val value = before[name]) {
+                            is String -> rollback.putString(name, value)
+                            is Boolean -> rollback.putBoolean(name, value)
+                            else -> rollback.remove(name)
+                        }
+                    }
+                    check(rollback.commit()) { "登录保存失败，回滚未完成" }
+                } catch (rollback: Exception) { failure.addSuppressed(rollback) }
+                throw failure
+            }
+            importError = null
+        }
+    }
+
     fun importFlutter() {
         if (bool("compose_import_done")) return
         try {
