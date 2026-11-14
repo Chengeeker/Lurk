@@ -65,7 +65,7 @@ internal fun GalleryThumbnail(
     var drawable by remember(key) { mutableStateOf<Drawable?>(null) }
     DisposableEffect(key) { onDispose { registry.sources.remove(key) } }
     Box(modifier.onGloballyPositioned {
-        registry.sources[key] = GalleryOrigin(Rect(it.localToWindow(Offset.Zero), it.size.toSize()), media[index],
+        registry.sources[key] = GalleryOrigin(Rect(it.positionOnScreen(), it.size.toSize()), media[index],
             with(density) { radius.dp.toPx() }, crop, galleryScope, index) { drawable }
     }.drawWithContent { if (registry.hidden != key) drawContent() }.feedbackClickable {
         registry.selected = key
@@ -115,13 +115,13 @@ internal fun GalleryIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 }
 
 @Composable
-fun GalleryScreen(media: List<Media>, initial: Int, close: () -> Unit) {
+fun GalleryScreen(media: List<Media>, initial: Int, onBackReady: ((() -> Unit) -> Unit)? = null, close: () -> Unit) {
     val model = LocalState.current
-    GalleryContent(media, initial, model.store.bool("key_use_liquid_glass_effect"), rememberMediaSaver(), close)
+    GalleryContent(media, initial, model.store.bool("key_use_liquid_glass_effect"), rememberMediaSaver(), onBackReady, close)
 }
 
 @Composable
-internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, save: (Media) -> Unit, close: () -> Unit) {
+internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, save: (Media) -> Unit, onBackReady: ((() -> Unit) -> Unit)? = null, close: () -> Unit) {
     if (media.isEmpty()) return
     val context = LocalContext.current; val registry = LocalGalleryOrigins.current
     val hidingOwner = remember { Any() }
@@ -141,6 +141,7 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
     val thumbnails = rememberPagerState(initial.coerceIn(media.indices)) { media.size }
     val mainDragging by pager.interactionSource.collectIsDraggedAsState(); val thumbDragging by thumbnails.interactionSource.collectIsDraggedAsState()
     var zoomed by remember { mutableStateOf(false) }; var controls by remember { mutableStateOf(true) }; var fullscreen by remember { mutableStateOf(false) }
+    val exitFullscreen = remember { arrayOfNulls<() -> Unit>(1) }
     var currentVideo by remember { mutableStateOf(media[initial].video) }
     val motion = remember(scope) { GalleryOpeningMotion(scope) }
     val returning = motion.returning
@@ -194,6 +195,7 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
             close()
         }
     }
+    SideEffect { onBackReady?.invoke { if (fullscreen) exitFullscreen[0]?.invoke() else dismiss() } }
     val placed = overlayBounds != null
     val opening = !openingFinished && !returning
     val pagingBlocked by rememberUpdatedState(opening || returning || !playerMounted)
@@ -268,7 +270,7 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
         }
     }
     Box(Modifier.fillMaxSize().onGloballyPositioned {
-        val bounds = Rect(it.positionInWindow(), it.size.toSize())
+        val bounds = Rect(it.positionOnScreen(), it.size.toSize())
         if (bounds.isEmpty) return@onGloballyPositioned
         if (overlayBounds == null && origin != null && preview != null && !origin.item.isVideo &&
             !origin.rect.isEmpty && origin.rect.overlaps(bounds) && !returning) {
@@ -317,7 +319,7 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
                 val item = media[index]
                 if (item.isVideo && pager.settledPage == index) CompositionLocalProvider(LocalBackdrop provides null) {
                     VideoPlayer(item, item.fromThreadPreview && media.count { it.isVideo } == 1,
-                        { controls = it }, { fullscreen = it }, { currentVideo = it }, { videoBottomHeight = it })
+                        { controls = it }, { fullscreen = it }, { currentVideo = it }, { videoBottomHeight = it }, { exitFullscreen[0] = it })
                 }
                 else {
                     var scale by remember { mutableFloatStateOf(1f) }; var offset by remember { mutableStateOf(Offset.Zero) }; var zoomJob by remember { mutableStateOf<Job?>(null) }

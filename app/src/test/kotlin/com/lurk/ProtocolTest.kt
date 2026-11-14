@@ -6,6 +6,43 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ProtocolTest {
+    @Test fun replyPreviewUsesWebImagesOnlyForMatchingReplyIds() {
+        val rows = JSONArray("""[{"id":"10","content":[{"type":0,"text":"文字"}]},{"id":"11","content":[{"type":0,"text":"回复 :"},{"type":3,"origin_src":"https://tiebapic.baidu.com/forum/pic/item/example.jpg","cdn_src":"https://tiebapic.baidu.com/forum/thumb.jpg"}]},{"id":"12","content":[{"type":3,"origin_src":"javascript:bad"}]}]""").objects()
+        val images = subReplyImages(rows)
+        assertEquals(setOf("11"), images.keys)
+        assertEquals("https://tiebapic.baidu.com/forum/pic/item/example.jpg", parseContent(images["11"]).last().media?.original)
+    }
+    @Test fun bookmarkUsesTheRealFirstPostId() {
+        assertEquals("154128252699", firstPostId(JSONObject("""{"thread":{"post_id":154128252699},"post_list":[{"floor":2,"id":99}]}""")))
+        assertEquals("123", firstPostId(JSONObject("""{"thread":{"post_id":"0"},"post_list":[{"floor":2,"id":99},{"floor":1,"id":123}]}""")))
+        assertEquals("", firstPostId(JSONObject("""{"thread":{"post_id":"0"},"post_list":[{"floor":2,"id":99}]}""")))
+    }
+    @Test fun webFloorImageUsesOriginalAndThumbnail() {
+        val row = JSONObject("""{"id":154134739660,"content":[{"type":0,"text":"回复 "},{"type":4,"text":"某人","uid":42},{"type":0,"text":" :"},{"type":3,"origin_src":"https://tiebapic.baidu.com/forum/pic/item/image.jpg?token=a","cdn_src":"https://tiebapic.baidu.com/forum/thumb.jpg?token=b","bsize":"560,1098"}]}""")
+        val content = parseContent(row.opt("content"))
+        assertEquals("某人", content[1].text)
+        assertEquals("https://tiebapic.baidu.com/forum/pic/item/image.jpg?token=a", content.last().media?.original)
+        assertEquals("https://tiebapic.baidu.com/forum/thumb.jpg?token=b", content.last().media?.thumbnail)
+        assertEquals(1098, content.last().media?.height)
+    }
+    @Test fun htmlImagesRemainMediaAndEmojiStaysText() {
+        val input = Segment("前<img src='https://example.com/a.jpg?x=1&amp;y=2'>中<img src='image_emoticon25.png'>后")
+        val result = expandHtmlImages(listOf(input))
+        assertEquals(3, result.size)
+        assertEquals("前", result[0].text)
+        assertEquals("https://example.com/a.jpg?x=1&y=2", result[1].media?.original)
+        assertEquals("中[滑稽]后", plainText(result[2].text))
+        val invalid = Segment("<img src='javascript:bad()'>")
+        assertEquals(listOf(invalid), expandHtmlImages(listOf(invalid)))
+    }
+    @Test fun writeFailureReportsNestedErrorAndDoesNotAssumeMissingCodeSucceeded() {
+        val api = NativeApi()
+        val nested = JSONObject().put("error_code", 0).put("error", JSONObject().put("errno", 123).put("error_msg", "收藏失败"))
+        assertEquals("收藏失败", assertThrows(ApiFailure::class.java) { api.checkResult(nested, true) }.message)
+        val missing = assertThrows(ApiFailure::class.java) { api.checkResult(JSONObject(), true) }
+        assertEquals("服务端未返回明确结果", missing.message)
+        api.checkResult(JSONObject().put("error_code", 0), true)
+    }
     @Test fun postOwnershipRequiresIdentityRatherThanMatchingDisplayNames() {
         val account = Account(JSONObject().put("uid", "1").put("name", "同名用户").put("portrait", "owner"))
         assertFalse(ownsPost(account, Author("2", "同名用户", "other")))

@@ -76,7 +76,7 @@ internal fun Modifier.videoTapInput(key: Any, onTap: () -> Unit, onDoubleTap: (F
 }
 
 @Composable
-fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolean) -> Unit, onFullscreen: (Boolean) -> Unit, onUrl: (String) -> Unit, onBottomHeight: (Int) -> Unit) {
+fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolean) -> Unit, onFullscreen: (Boolean) -> Unit, onUrl: (String) -> Unit, onBottomHeight: (Int) -> Unit, onExitFullscreenReady: ((() -> Unit) -> Unit) = {}) {
     val context = LocalContext.current; val model = LocalState.current; val activity = androidx.activity.compose.LocalActivity.current
     val view = LocalView.current; val window = (view.parent as? DialogWindowProvider)?.window ?: activity?.window
     val lifecycle = LocalLifecycleOwner.current.lifecycle; val scope = rememberCoroutineScope()
@@ -96,6 +96,7 @@ fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolea
     var brightness by remember { mutableFloatStateOf(runCatching { Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS) / 255f }.getOrDefault(.5f)) }
     var volume by remember { mutableFloatStateOf(.5f) }
     fun toggleOrientation() { fullscreen = !fullscreen; activity?.requestedOrientation = if (fullscreen) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT; interaction++ }
+    SideEffect { onExitFullscreenReady { if (fullscreen) toggleOrientation() } }
     fun playPause() { if (player.playWhenReady) { player.pause(); controls = true } else player.play(); interaction++ }
     fun load(url: String, at: Long = 0) { selectVideoTrack(player, null); selectedQuality = "自动"; effective = url; onUrl(url); failure = false; ready = false; buffering = true; scrubPosition = null; player.setMediaItem(MediaItem.fromUri(url), at); player.prepare(); player.playWhenReady = true }
     LaunchedEffect(media, retry) {

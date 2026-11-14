@@ -190,7 +190,17 @@ class LurkState(app: Application) : AndroidViewModel(app) {
         }
         revision++
         if (client.account == null) { message(if (add) "已收藏到本机" else "已取消本机收藏"); return@action }
-        syncBookmarks(client)
+        try {
+            syncBookmarks(client)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (stillCurrent(generation)) {
+                val reason = (e as? ApiFailure)?.message
+                message(listOfNotNull("本地收藏已更新，云端同步失败，待下次同步", reason).joinToString("："))
+            }
+            return@action
+        }
         if (stillCurrent(generation)) message(if (add) "已收藏" else "已取消收藏")
     }
 
@@ -199,7 +209,12 @@ class LurkState(app: Application) : AndroidViewModel(app) {
         for (add in listOf(true, false)) {
             val key = "key_bookmark_pending_${if (add) "adds" else "removes"}_$uid"
             for (id in store.list(key).take(100)) {
-                val args = if (add) mapOf("data" to JSONArray().put(JSONObject().put("pid", "0").put("tid", id).put("status", "0").put("type", "0")).toString()) else mapOf("tid" to id)
+                val pid = if (add && id !in officialIds) {
+                    savedRows(store, "key_bookmarks_list_$uid").firstOrNull { it.id == id }?.postId?.takeUnless { it.isEmpty() || it == "0" }
+                        ?: firstPostId(client.detail(id)).takeIf { it.isNotEmpty() }
+                        ?: throw ApiFailure("无法获取贴子首楼 ID")
+                } else ""
+                val args = if (add) mapOf("data" to JSONArray().put(JSONObject().put("pid", pid).put("tid", id).put("status", "0").put("type", "0")).toString()) else mapOf("tid" to id)
                 if (!add || id !in officialIds) client.write(if (add) "/c/c/post/addstore" else "/c/c/post/rmstore", args)
                 withContext(Dispatchers.IO) { store.put(key, store.list(key).filterNot { it == id }) }
             }

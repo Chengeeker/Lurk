@@ -30,6 +30,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -40,6 +44,9 @@ import androidx.compose.ui.unit.em
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import org.json.JSONArray
 import org.json.JSONObject
 
 fun resolvePostAuthors(data: JSONObject, key: String = "post_list"): List<JSONObject> {
@@ -50,6 +57,13 @@ fun resolvePostAuthors(data: JSONObject, key: String = "post_list"): List<JSONOb
     }
     return data.rows(key).onEach { post -> attach(post); post.obj("sub_post_list").rows("sub_post_list").forEach(::attach) }
 }
+
+internal fun subReplyImages(rows: List<JSONObject>): Map<String, JSONArray> = rows.mapNotNull { row ->
+    val id = row.s("id")
+    val content = row.optJSONArray("content")
+    if (id.isEmpty() || content == null || parseContent(content).none { it.media?.original?.let(::targetUrl)?.isNotEmpty() == true }) null
+    else id to content
+}.toMap()
 
 suspend fun NativeApi.deletePost(tid: String, pid: String, forum: JSONObject, thread: Boolean = false) {
     val name = forum.s("name").removeSuffix("吧").trim()
@@ -97,7 +111,8 @@ private fun PostImage(galleryScope: Any, media: List<Media>, index: Int, maxHeig
 }
 
 @Composable
-fun PostContent(content: List<Segment>, author: String, main: Boolean = false) {
+fun PostContent(rawContent: List<Segment>, author: String, main: Boolean = false) {
+    val content = remember(rawContent) { expandHtmlImages(rawContent) }
     val galleryScope = remember { Any() }
     val hideImages = LocalState.current.store.int("key_habit_image_load_mode") in listOf(1, 3)
     val media = if (hideImages) emptyList() else content.mapNotNull { it.media?.copy(folderName = author) }
@@ -114,12 +129,26 @@ fun PostContent(content: List<Segment>, author: String, main: Boolean = false) {
 }
 
 @Composable
+internal fun SubReplyPictures(media: List<Media>, galleryScope: Any) {
+    if (media.isEmpty()) return
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp, bottom = 3.dp)) {
+        media.forEachIndexed { index, item ->
+            val aspect = if (item.width > 0 && item.height > 0) (item.width.toFloat() / item.height).coerceIn(.5f, 2.2f) else 1f
+            val width = if (media.size == 1) minOf(160f, 180f * aspect) else 80f
+            GalleryThumbnail(galleryScope, media, index, 8, item.thumbnail.ifEmpty { item.original }, Modifier.size(width.dp, (if (media.size == 1) width / aspect else width).dp).clip(RoundedCornerShape(8.dp))) { }
+        }
+    }
+}
+
+@Composable
 fun ThreadScreen(tid: String, targetPid: String, back: () -> Unit) {
     val model = LocalState.current; val open = LocalOpen.current; val colors = MaterialTheme.colorScheme
     var lz by rememberSaveable { mutableStateOf(false) }; var reverse by rememberSaveable { mutableStateOf(false) }
     var refresh by rememberSaveable { mutableIntStateOf(0) }; var reply by rememberSaveable { mutableStateOf("") }
     var thread by pageState("thread") { JSONObject() }; var forum by pageState("forum") { JSONObject() }; var first by pageState("first") { JSONObject() }
     var count by pageState("count") { 0 }
+    val previewImages = remember(tid) { mutableStateMapOf<String, Map<String, JSONArray>>() }
+    val previewLanes = remember(tid) { Semaphore(3) }
     var floor by remember { mutableStateOf<JSONObject?>(null) }; var actions by remember { mutableStateOf<JSONObject?>(null) }; var delete by remember { mutableStateOf<JSONObject?>(null) }
     val revision = model.revision
     val author = Author.parse(first.optJSONObject("author") ?: thread.obj("author"))
@@ -173,7 +202,7 @@ fun ThreadScreen(tid: String, targetPid: String, back: () -> Unit) {
                 Text("只看楼主", Modifier.height(48.dp).feedbackClickable { lz = !lz }.padding(horizontal = 4.dp).wrapContentHeight(Alignment.CenterVertically), fontSize = 13.5.sp, color = if (lz) colors.primary else colors.outline, fontWeight = if (lz) FontWeight.Bold else FontWeight.Normal)
                 Spacer(Modifier.weight(1f)); Text("正序", Modifier.height(48.dp).feedbackClickable { reverse = false }.padding(horizontal = 4.dp).wrapContentHeight(Alignment.CenterVertically), fontSize = 13.5.sp, fontWeight = if (!reverse) FontWeight.Bold else FontWeight.Normal, color = if (!reverse) colors.onSurface else colors.outline); Text("|", Modifier.padding(horizontal = 8.dp), fontSize = 13.sp, color = colors.outline.copy(alpha = .3f)); Text("倒序", Modifier.height(48.dp).feedbackClickable { reverse = true }.padding(horizontal = 4.dp).wrapContentHeight(Alignment.CenterVertically), fontSize = 13.5.sp, fontWeight = if (reverse) FontWeight.Bold else FontWeight.Normal, color = if (reverse) colors.onSurface else colors.outline)
             }
-        }) { post -> CommentFloor(tid, post, author.id, { floor = post }, { actions = post }) } }
+        }) { post -> CommentFloor(tid, post, author.id, previewImages, previewLanes, { floor = post }, { actions = post }) } }
         ReplyInput(reply, { reply = it }, "说点什么吧...") {
             if (reply.isNotBlank()) model.action { api, _ -> api.reply(tid, forum.s("id"), forum.s("name"), reply.trim()); reply = ""; refresh++; model.message("回复成功") }
         }
@@ -184,10 +213,21 @@ fun ThreadScreen(tid: String, targetPid: String, back: () -> Unit) {
 }
 
 @Composable
-fun CommentFloor(tid: String, post: JSONObject, authorId: String, reply: () -> Unit, actions: () -> Unit) {
+fun CommentFloor(tid: String, post: JSONObject, authorId: String, previewImages: MutableMap<String, Map<String, JSONArray>>, previewLanes: Semaphore, reply: () -> Unit, actions: () -> Unit) {
     val model = LocalState.current; val open = LocalOpen.current; val colors = MaterialTheme.colorScheme
     val author = Author.parse(post.obj("author"))
     val haptics = LocalHapticFeedback.current
+    val sub = post.obj("sub_post_list"); val count = sub.s("sub_post_number").ifEmpty { post.s("sub_post_number") }.toIntOrNull() ?: 0
+    val previewRows = sub.rows("sub_post_list").take(2)
+    val postId = post.s("id")
+    val hidePreviewImages = model.store.int("key_habit_image_load_mode") in listOf(1, 3)
+    val needsImages = !hidePreviewImages && previewRows.any { row -> parseContent(row.opt("content")).any { "[图片]" in it.text } }
+    LaunchedEffect(tid, postId, needsImages) {
+        if (needsImages && postId.isNotEmpty() && !previewImages.containsKey(postId)) try {
+            val images = previewLanes.withPermit { subReplyImages(model.api.webFloor(tid, postId, 1).rows("post_list")) }
+            previewImages[postId] = images
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { }
+    }
     var liked by pageState("like:${post.s("id")}") { post.obj("agree").flag("has_agree") }
     var likes by pageState("likes:${post.s("id")}") { post.obj("agree").s("agree_num").toIntOrNull() ?: 0 }
     Row(Modifier.fillMaxWidth().combinedClickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, hapticFeedbackEnabled = false, onClick = {}, onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); actions() }).padding(horizontal = 16.dp, vertical = 8.dp)) {
@@ -203,12 +243,17 @@ fun CommentFloor(tid: String, post: JSONObject, authorId: String, reply: () -> U
             }
             Text(listOf(relativeTime(post.s("time")), "第 ${post.s("floor")} 楼", author.ip.takeIf(String::isNotEmpty)?.let { "来自$it" }.orEmpty()).filter(String::isNotEmpty).joinToString(" · "), Modifier.padding(top = 2.dp), fontSize = 11.5.sp, color = colors.outline)
             Spacer(Modifier.height(6.dp)); PostContent(parseContent(post.opt("content")), author.name)
-            val sub = post.obj("sub_post_list"); val count = sub.s("sub_post_number").ifEmpty { post.s("sub_post_number") }.toIntOrNull() ?: 0
             if (count > 0) Surface(onClick = tapFeedback(reply), color = colors.surfaceContainerLow, shape = RoundedCornerShape(8.dp), modifier = Modifier.padding(top = 8.dp)) { Column(Modifier.fillMaxWidth().padding(8.dp)) {
-                sub.rows("sub_post_list").take(2).forEach { row -> Text(androidx.compose.ui.text.buildAnnotatedString {
+                previewRows.forEach { row ->
+                    val content = expandHtmlImages(parseContent(previewImages[postId]?.get(row.s("id")) ?: row.opt("content")))
+                    val media = if (hidePreviewImages) emptyList() else content.mapNotNull { it.media?.copy(folderName = Author.parse(row.obj("author")).name) }
+                    val galleryScope = remember(row.s("id")) { Any() }
+                    Text(androidx.compose.ui.text.buildAnnotatedString {
                     pushStyle(androidx.compose.ui.text.SpanStyle(color = colors.primary, fontWeight = FontWeight.Bold)); append("${Author.parse(row.obj("author")).name}: "); pop()
-                    append(parseContent(row.opt("content")).joinToString("") { it.text })
-                }, Modifier.padding(vertical = 1.dp), fontSize = 12.sp, color = colors.onSurfaceVariant, maxLines = if (row.toString().contains("http")) Int.MAX_VALUE else 2, overflow = if (row.toString().contains("http")) TextOverflow.Clip else TextOverflow.Ellipsis) }
+                    append(content.joinToString("") { it.text })
+                }, Modifier.padding(vertical = 1.dp), fontSize = 12.sp, color = colors.onSurfaceVariant, maxLines = if (row.toString().contains("http")) Int.MAX_VALUE else 2, overflow = if (row.toString().contains("http")) TextOverflow.Clip else TextOverflow.Ellipsis)
+                    SubReplyPictures(media, galleryScope)
+                }
                 Spacer(Modifier.height(4.dp)); Text("共 $count 条回复 >", fontSize = 11.sp, color = colors.primary, fontWeight = FontWeight.Bold)
             } }
         }
@@ -233,12 +278,32 @@ fun PostActions(post: JSONObject, canDelete: Boolean, sub: Boolean, dismiss: () 
 fun DeleteConfirmation(title: String, text: String, dismiss: () -> Unit, delete: () -> Unit) = OriginalConfirmation(title, text, "删除", dismiss, delete)
 
 @Composable
+internal fun GalleryDialog(onBack: () -> Unit, content: @Composable () -> Unit) {
+    Dialog(onDismissRequest = onBack, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val view = LocalView.current
+        SideEffect {
+            (view.parent as? DialogWindowProvider)?.window?.let { window ->
+                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+                androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = false; isAppearanceLightNavigationBars = false
+                }
+            }
+        }
+        Box(Modifier.fillMaxSize()) { content() }
+    }
+}
+
+@Composable
 fun FloorSheet(tid: String, forum: JSONObject, post: JSONObject, ownThread: Boolean, dismiss: () -> Unit) {
     val model = LocalState.current; val colors = MaterialTheme.colorScheme
     val open = LocalOpen.current
     val haptics = LocalHapticFeedback.current
     var target by remember { mutableStateOf<JSONObject?>(null) }; var actions by remember { mutableStateOf<JSONObject?>(null) }; var delete by remember { mutableStateOf<JSONObject?>(null) }
     var text by rememberSaveable { mutableStateOf("") }; var refresh by remember { mutableIntStateOf(0) }; var count by remember { mutableIntStateOf(0) }
+    var webFloor by remember(refresh) { mutableStateOf<Boolean?>(null) }
+    var gallery by remember { mutableStateOf<Pair<List<Media>, Int>?>(null) }
+    val galleryBack = remember { arrayOfNulls<() -> Unit>(1) }
     val page = remember { PageSession() }
     ModalBottomSheet(sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), onDismissRequest = dismiss, dragHandle = null, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), containerColor = colors.surface) {
         CompositionLocalProvider(LocalPage provides page) {
@@ -246,14 +311,25 @@ fun FloorSheet(tid: String, forum: JSONObject, post: JSONObject, ownThread: Bool
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) { Text("${post.s("floor")} 楼的回复 ($count)", Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold); IconButton(onClick = tapFeedback(dismiss)) { Icon(Icons.Rounded.Close, "关闭") } }
                 OriginalDivider()
                 Box(Modifier.weight(1f)) { key(refresh) { PagedContent(identity = refresh, bottomPadding = 16, emptyMessage = "暂无更多楼中楼回复", load = { number ->
-                    val data = model.api.post("/c/f/pb/floor", mapOf("kz" to tid, "pid" to post.s("id"), "pn" to "$number"))
-                    val rows = resolvePostAuthors(data, "subpost_list"); count = if (number == 1) rows.size else count + rows.size
+                    val data = if (webFloor != false) try {
+                        model.api.webFloor(tid, post.s("id"), number).also {
+                            if (number == 1 && it.rows("post_list").isEmpty() && (post.s("sub_post_number").toIntOrNull() ?: 0) > 0) throw ApiFailure("网页回复不可用")
+                            webFloor = true
+                        }
+                    } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
+                        if (number != 1 || webFloor == true) throw e
+                        webFloor = false
+                        model.api.post("/c/f/pb/floor", mapOf("kz" to tid, "pid" to post.s("id"), "pn" to "$number"))
+                    } else model.api.post("/c/f/pb/floor", mapOf("kz" to tid, "pid" to post.s("id"), "pn" to "$number"))
+                    val rows = resolvePostAuthors(data, if (webFloor == true) "post_list" else "subpost_list"); count = if (number == 1) rows.size else count + rows.size
                     rows to data.obj("page").flag("has_more")
                 }) { row ->
                     val author = Author.parse(row.obj("author"))
                     Row(Modifier.fillMaxWidth().combinedClickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null, hapticFeedbackEnabled = false, onClick = {}, onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); actions = row }).padding(horizontal = 16.dp, vertical = 4.dp)) {
                         OriginalAvatar(portraitUrl(author.portrait), author.name, Modifier.size(32.dp).clip(CircleShape).feedbackClickable(enabled = author.id.isNotEmpty()) { open(Route("profile", author.id)) }); Spacer(Modifier.width(8.dp))
-                        Column(Modifier.weight(1f)) { Row(verticalAlignment = Alignment.CenterVertically) { Text(author.name, Modifier.weight(1f), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1); Text(relativeTime(row.s("time")), fontSize = 11.sp, color = colors.outline); IconButton(onClick = tapFeedback { actions = row }, modifier = Modifier.size(32.dp)) { Icon(Icons.Rounded.MoreHoriz, "更多操作", Modifier.size(16.dp)) } }; Spacer(Modifier.height(4.dp)); RichText(parseContent(row.opt("content")), fontSize = 13f, height = null); OriginalDivider(Modifier.padding(vertical = 8.dp)) }
+                        Column(Modifier.weight(1f)) { Row(verticalAlignment = Alignment.CenterVertically) { Text(author.name, Modifier.weight(1f), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1); Text(relativeTime(row.s("time")), fontSize = 11.sp, color = colors.outline); IconButton(onClick = tapFeedback { actions = row }, modifier = Modifier.size(32.dp)) { Icon(Icons.Rounded.MoreHoriz, "更多操作", Modifier.size(16.dp)) } }; Spacer(Modifier.height(4.dp)); CompositionLocalProvider(LocalMedia provides { items, index ->
+                            if (index in items.indices) gallery = items.map { if (it.threadId.isEmpty()) it.copy(threadId = tid) else it } to index
+                        }) { PostContent(parseContent(row.opt("content")), author.name) }; OriginalDivider(Modifier.padding(vertical = 8.dp)) }
                     }
                 } } }
                 ReplyInput(text, { text = it }, target?.let { "回复 @${Author.parse(it.obj("author")).name}..." } ?: "回复 ${post.s("floor")} 楼...", target?.let { Author.parse(it.obj("author")).name }.orEmpty(), { target = null }) {
@@ -262,6 +338,9 @@ fun FloorSheet(tid: String, forum: JSONObject, post: JSONObject, ownThread: Bool
             }
         }
     }
+    gallery?.let { (items, index) -> GalleryDialog(onBack = { galleryBack[0]?.invoke() }) {
+        GalleryScreen(items, index, onBackReady = { galleryBack[0] = it }) { galleryBack[0] = null; gallery = null }
+    } }
     actions?.let { row -> PostActions(row, ownThread || ownsPost(model.account, Author.parse(row.obj("author"))), true, { actions = null }, { target = row }, { delete = row }) }
     delete?.let { row -> DeleteConfirmation("删除回复", "确定要删除这条楼中楼回复吗？删除后将无法恢复。", { delete = null }) { model.action { api, _ -> api.deletePost(tid, row.s("id"), forum); delete = null; refresh++ } } }
 }

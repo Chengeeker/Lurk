@@ -1,5 +1,28 @@
 package com.lurk
 
+internal fun expandHtmlImages(segments: List<Segment>): List<Segment> = segments.flatMap { segment ->
+    if (segment.media != null || segment.link.isNotEmpty() || segment.emoji.isNotEmpty() || segment.userId.isNotEmpty()) return@flatMap listOf(segment)
+    val input = segment.text.replace(Regex("<(script|style)\\b[^>]*>.*?</\\1\\s*>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
+    val imageTags = Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE)
+    val attributes = Regex("\\b(data-original|data-src|src)\\s*=\\s*[\"']([^\"']*)[\"']", RegexOption.IGNORE_CASE)
+    val result = mutableListOf<Segment>()
+    var start = 0
+    imageTags.findAll(input).forEach { match ->
+        if (match.value.contains("image_emoticon", true) || match.value.contains("BDE_Smiley", true)) return@forEach
+        val urls = attributes.findAll(match.value).associate { it.groupValues[1].lowercase() to it.groupValues[2] }
+        val url = listOf("data-original", "data-src", "src").firstNotNullOfOrNull { key ->
+            targetUrl(plainText(urls[key].orEmpty(), false)).takeIf { it.isNotEmpty() }
+        } ?: return@forEach
+        if (match.range.first > start) result.add(Segment(input.substring(start, match.range.first)))
+        result.add(Segment("", media = Media(url)))
+        start = match.range.last + 1
+    }
+    if (start == 0) listOf(segment) else {
+        if (start < input.length) result.add(Segment(input.substring(start)))
+        result
+    }
+}
+
 fun plainText(value: String, trim: Boolean = true): String {
     var text = value.replace(Regex("<(script|style)\\b[^>]*>.*?</\\1\\s*>", setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL)), "")
     text = text.replace(Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE)) { tag ->

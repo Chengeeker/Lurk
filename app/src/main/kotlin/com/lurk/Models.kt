@@ -20,6 +20,9 @@ fun JSONObject.removeSnippet(): JSONObject { remove("snippetSegments"); remove("
 fun md5(bytes: ByteArray) = MessageDigest.getInstance("MD5").digest(bytes).joinToString("") { "%02x".format(it) }
 fun sign(params: Map<String, String>) = md5((params.toSortedMap().entries.joinToString("") { "${it.key}=${it.value}" } + "tiebaclient!!!").toByteArray())
 
+internal fun firstPostId(detail: JSONObject): String = detail.obj("thread").s("post_id").takeUnless { it.isEmpty() || it == "0" }
+    ?: detail.rows("post_list").firstOrNull { it.s("floor") == "1" }?.s("id")?.takeUnless { it.isEmpty() || it == "0" }.orEmpty()
+
 data class Account(val raw: JSONObject) {
     val uid get() = raw.s("uid")
     val name get() = raw.s("nameShow", "name").ifEmpty { "用户" }
