@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -80,7 +81,7 @@ internal fun GalleryThumbnail(
 @Composable
 internal fun GalleryIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, glass: Boolean, click: () -> Unit) {
     if (!glass) {
-        PlainGalleryControl(description, true, tapFeedback(click)) { Icon(icon, null, Modifier.size(24.dp), tint = Color.White) }
+        PlainGalleryControl(description, true, tapFeedback(click)) { Icon(if (description == "关闭") Icons.AutoMirrored.Outlined.ArrowBack else icon, null, Modifier.size(22.dp), tint = Color.White) }
         return
     }
     val source = LocalBackdrop.current
