@@ -10,9 +10,9 @@ android {
         applicationId = "com.lurk"
         minSdk = 24
         targetSdk = 36
-        versionCode = 105
+        versionCode = 106
         // Resume normal patch versions after the approved Compose release.
-        versionName = "3.0.7"
+        versionName = "3.0.8"
         ndk { abiFilters += "arm64-v8a" }
     }
     compileOptions {
