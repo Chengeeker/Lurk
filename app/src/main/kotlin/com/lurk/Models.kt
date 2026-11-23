@@ -20,6 +20,9 @@ fun JSONObject.removeSnippet(): JSONObject { remove("snippetSegments"); remove("
 fun md5(bytes: ByteArray) = MessageDigest.getInstance("MD5").digest(bytes).joinToString("") { "%02x".format(it) }
 fun sign(params: Map<String, String>) = md5((params.toSortedMap().entries.joinToString("") { "${it.key}=${it.value}" } + "tiebaclient!!!").toByteArray())
 
+internal fun firstPostId(detail: JSONObject): String = detail.obj("thread").s("post_id").takeUnless { it.isEmpty() || it == "0" }
+    ?: detail.rows("post_list").firstOrNull { it.s("floor") == "1" }?.s("id")?.takeUnless { it.isEmpty() || it == "0" }.orEmpty()
+
 data class Account(val raw: JSONObject) {
     val uid get() = raw.s("uid")
     val name get() = raw.s("nameShow", "name").ifEmpty { "用户" }
@@ -54,8 +57,8 @@ data class Author(val id: String = "", val name: String = "贴吧吧友", val po
 fun portraitUrl(value: String) = if (value.startsWith("http")) value else
     "https://gss0.bdstatic.com/7Ls0a8Sm1A5BphGlnYG/sys/portrait/item/${value.ifEmpty { "default.jpg" }}"
 
-data class Media(val original: String, val thumbnail: String = original, val video: String = "", val width: Int = 0, val height: Int = 0, val folderName: String = "", val threadId: String = "", val title: String = "", val isVideo: Boolean = video.isNotEmpty(), val videoId: String = "", val fromThreadPreview: Boolean = false) {
-    fun json() = JSONObject().put("origin_pic", original).put("cdn_src", thumbnail).put("video_url", video).put("width", width).put("height", height).put("type", if (isVideo) "5" else "3").put("video_id", videoId)
+data class Media(val original: String, val thumbnail: String = original, val video: String = "", val width: Int = 0, val height: Int = 0, val folderName: String = "", val threadId: String = "", val title: String = "", val isVideo: Boolean = video.isNotEmpty(), val videoId: String = "", val fromThreadPreview: Boolean = false, val videoKey: String = "") {
+    fun json() = JSONObject().put("origin_pic", original).put("cdn_src", thumbnail).put("video_url", video).put("width", width).put("height", height).put("type", if (isVideo) "5" else "3").put("video_id", videoId).put("tieba_video_key", videoKey)
     companion object {
         fun parse(j: JSONObject): Media {
             val markedVideo = j.s("type") in listOf("5", "video") || j.has("video_duration") || j.has("video_length")
@@ -73,7 +76,8 @@ data class Media(val original: String, val thumbnail: String = original, val vid
             return Media(original, picture("cdn_src", "thumbUrl", "src_pic", "small_pic", "small_src", "smallPic", "small_thumbnail_url", "big_pic", "thumbnail", "thumbnail_url", "vpic", "cover_url").ifEmpty { original }, video,
                 size.firstOrNull()?.toIntOrNull() ?: j.s("width", "video_width").toIntOrNull() ?: 0,
                 size.getOrNull(1)?.toIntOrNull() ?: j.s("height", "video_height").toIntOrNull() ?: 0,
-                isVideo = isVideo, videoId = if (isVideo) j.s("video_id", "vid").takeUnless { it == "0" }.orEmpty() else "")
+                isVideo = isVideo, videoId = if (isVideo) j.s("video_id", "vid").takeUnless { it == "0" }.orEmpty() else "",
+                videoKey = if (isVideo) j.s("tieba_video_key").ifEmpty { listOf("text", "vsrc").firstNotNullOfOrNull { tiebaVideoKey(j.s(it)).takeIf(String::isNotEmpty) }.orEmpty() } else "")
         }
     }
 }
@@ -92,7 +96,16 @@ internal fun videoStreamUrl(value: String): String {
     return url
 }
 
-private fun differentVideoIds(a: Media, b: Media) = a.videoId.isNotEmpty() && b.videoId.isNotEmpty() && a.videoId != b.videoId
+private fun differentVideoIds(a: Media, b: Media) =
+    a.videoId.isNotEmpty() && b.videoId.isNotEmpty() && a.videoId != b.videoId ||
+        a.videoKey.isNotEmpty() && b.videoKey.isNotEmpty() && a.videoKey != b.videoKey
+
+private fun tiebaVideoKey(value: String): String {
+    val url = runCatching { URI(value) }.getOrNull() ?: return ""
+    if (!url.host.equals("tieba.baidu.com", true) || url.path != "/mo/q/movideo/page") return ""
+    return url.rawQuery.orEmpty().split('&').firstOrNull { it.startsWith("video=") }?.substringAfter('=')
+        ?.takeIf { it.matches(Regex("[A-Za-z0-9_-]+")) }.orEmpty()
+}
 
 private val tiebaPosterHosts = setOf("tiebapic.baidu.com", "imgsa.baidu.com", "imgsrc.baidu.com")
 private val tiebaPosterHash = Regex("[a-fA-F0-9]{24,64}")
@@ -107,7 +120,7 @@ private fun coverKey(url: String): String {
 
 private fun sameVideo(a: Media, b: Media): Boolean {
     if (differentVideoIds(a, b)) return false
-    if (a.videoId.isNotEmpty() && a.videoId == b.videoId || a.video.isNotEmpty() && a.video == b.video) return true
+    if (a.videoId.isNotEmpty() && a.videoId == b.videoId || a.videoKey.isNotEmpty() && a.videoKey == b.videoKey || a.video.isNotEmpty() && a.video == b.video) return true
     val aCovers = listOf(coverKey(a.original), coverKey(a.thumbnail))
     return listOf(coverKey(b.original), coverKey(b.thumbnail)).any { it.isNotEmpty() && it in aCovers }
 }
@@ -119,6 +132,7 @@ private fun mergeVideo(a: Media, b: Media, preferSecond: Boolean = false): Media
     width = a.width.takeIf { it > 0 } ?: b.width,
     height = a.height.takeIf { it > 0 } ?: b.height,
     videoId = a.videoId.ifEmpty { b.videoId },
+    videoKey = a.videoKey.ifEmpty { b.videoKey },
 )
 
 internal fun distinctPostMedia(items: List<Media>): List<Media> {

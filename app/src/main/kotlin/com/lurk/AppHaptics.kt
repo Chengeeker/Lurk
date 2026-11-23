@@ -17,14 +17,21 @@ internal class AppHaptics(
 }
 
 @Composable
-internal fun tapFeedback(action: () -> Unit): () -> Unit {
+internal fun tapFeedback(action: () -> Unit): () -> Unit =
+    tapFeedback(action, HapticFeedbackType.ContextClick)
+
+@Composable
+internal fun tapFeedback(action: () -> Unit, type: HapticFeedbackType): () -> Unit {
     val haptics = LocalHapticFeedback.current
     return {
-        haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+        haptics.performHapticFeedback(type)
         action()
     }
 }
 
 @Composable
-internal fun Modifier.feedbackClickable(enabled: Boolean = true, onClick: () -> Unit): Modifier =
-    clickable(enabled = enabled, onClick = tapFeedback(onClick))
+internal fun Modifier.feedbackClickable(
+    enabled: Boolean = true,
+    type: HapticFeedbackType = HapticFeedbackType.ContextClick,
+    onClick: () -> Unit,
+): Modifier = clickable(enabled = enabled, onClick = tapFeedback(onClick, type))

@@ -85,7 +85,8 @@ class NativeApi(val account: Account? = null) {
         val code = j.s("error_code").ifEmpty { j.obj("error").s("errno", "error_code") }
         val nested = j.obj("error").s("errno", "error_code")
         if ((code.isNotEmpty() && code != "0") || (nested.isNotEmpty() && nested != "0") || required && code != "0") {
-            throw ApiFailure(j.s("error_msg", "msg").ifEmpty { j.obj("error").s("user_msg", "errmsg") }.ifEmpty { "请求失败（${code.ifEmpty { "未知" }}）" })
+            val failureCode = nested.takeIf { it.isNotEmpty() && it != "0" } ?: code
+            throw ApiFailure(j.s("error_msg", "msg", "message").ifEmpty { j.obj("error").s("user_msg", "errmsg", "error_msg", "message") }.ifEmpty { if (failureCode.isEmpty()) "服务端未返回明确结果" else "请求失败（$failureCode）" })
         }
     }
 
@@ -164,6 +165,16 @@ class NativeApi(val account: Account? = null) {
         post("/c/f/pb/page", mapOf("kz" to tid, "pn" to "$page", "rn" to "20", "with_floor" to "1", "floor_rn" to "3",
             "lz" to if (lz) "1" else "0", "r" to if (reverse) "1" else "0", "_client_version" to "12.65.1.0", "from" to "baidu_appstore") +
             if (pid.isNotEmpty()) mapOf("pid" to pid) else emptyMap())
+
+    suspend fun webFloor(tid: String, pid: String, page: Int): JSONObject {
+        val params = mapOf("post_id" to pid, "thread_id" to tid, "offset" to "${(page - 1) * 10}", "subapp_type" to "pc", "_client_type" to "20")
+        val signature = md5((params.toSortedMap().entries.joinToString("") { "${it.key}=${it.value}" } + "36770b1f34c9bbf2e7d1a99d2b82fa9e").toByteArray())
+        val form = FormBody.Builder().apply { (params + ("sign" to signature)).forEach { (k, v) -> add(k, v) } }.build()
+        val result = JSONObject(String(bytes(request("https://tieba.baidu.com/c/f/pb/nestedFloor", auth = false)
+            .header("User-Agent", "Mozilla/5.0").header("Referer", "https://tieba.baidu.com/p/$tid").post(form).build()), Charsets.UTF_8))
+        checkResult(result, true)
+        return result.obj("data")
+    }
 
     suspend fun write(path: String, values: Map<String, String>): JSONObject {
         val result = post(path, values + ("tbs" to tbs()), check = false)

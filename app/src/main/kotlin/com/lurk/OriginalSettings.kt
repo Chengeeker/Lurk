@@ -123,9 +123,9 @@ fun OriginalSettingsHome(back: () -> Unit) {
                     Text("Lurk", fontSize = 21.sp, fontWeight = FontWeight.Bold, letterSpacing = .2.sp); Spacer(Modifier.width(8.dp))
                     Surface(color = colors.primaryContainer, shape = RoundedCornerShape(8.dp)) { Text("v${BuildConfig.VERSION_NAME}", Modifier.padding(horizontal = 8.dp, vertical = 2.5.dp), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = colors.onPrimaryContainer) }
                 }
-                Spacer(Modifier.height(6.dp)); Text("纯原生 Material You 极简社区客户端", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp)); Text("简洁的社区客户端", fontSize = 13.sp, color = colors.onSurfaceVariant)
                 Spacer(Modifier.height(16.dp)); OriginalDivider(); Spacer(Modifier.height(14.dp))
-                listOf("100% 纯原生 Compose 与 MD3 动态主题配色", "原生接口直连、动态板块与社区签到", "自适应九宫格、全高清原图与丰富社区表情").forEachIndexed { i, text ->
+                listOf("液态玻璃效果与个性化主题", "原生接口直连、动态板块与社区签到", "自适应九宫格、全高清原图与丰富社区表情").forEachIndexed { i, text ->
                     if (i > 0) Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Icon(listOf(Icons.Outlined.Palette, Icons.Rounded.Sync, Icons.Outlined.PhotoLibrary)[i], null, Modifier.size(16.dp), tint = colors.primary)

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -65,7 +66,7 @@ internal fun GalleryThumbnail(
     var drawable by remember(key) { mutableStateOf<Drawable?>(null) }
     DisposableEffect(key) { onDispose { registry.sources.remove(key) } }
     Box(modifier.onGloballyPositioned {
-        registry.sources[key] = GalleryOrigin(Rect(it.localToWindow(Offset.Zero), it.size.toSize()), media[index],
+        registry.sources[key] = GalleryOrigin(Rect(it.positionOnScreen(), it.size.toSize()), media[index],
             with(density) { radius.dp.toPx() }, crop, galleryScope, index) { drawable }
     }.drawWithContent { if (registry.hidden != key) drawContent() }.feedbackClickable {
         registry.selected = key
@@ -80,7 +81,7 @@ internal fun GalleryThumbnail(
 @Composable
 internal fun GalleryIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, glass: Boolean, click: () -> Unit) {
     if (!glass) {
-        PlainGalleryControl(description, true, tapFeedback(click)) { Icon(icon, null, Modifier.size(24.dp), tint = Color.White) }
+        PlainGalleryControl(description, true, tapFeedback(click, HapticFeedbackType.KeyboardTap)) { Icon(if (description == "关闭") Icons.AutoMirrored.Outlined.ArrowBack else icon, null, Modifier.size(22.dp), tint = Color.White) }
         return
     }
     val source = LocalBackdrop.current
@@ -110,18 +111,18 @@ internal fun GalleryIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, 
         if (glass && android.os.Build.VERSION.SDK_INT >= 33 && source != null && optics != null) {
             ReferenceGalleryGlass(source, optics, press, Modifier.matchParentSize())
         } else if (glass) Box(Modifier.matchParentSize().clip(CircleShape).backdrop(2f, material = LiquidMaterial(thickness = 32f, index = 1.24f, dispersion = .025f, tint = Color(0x66000000))))
-        IconButton(onClick = tapFeedback { click() }, modifier = Modifier.fillMaxSize()) { Icon(icon, description, Modifier.size(22.dp), tint = Color.White) }
+        IconButton(onClick = tapFeedback(click, HapticFeedbackType.KeyboardTap), modifier = Modifier.fillMaxSize()) { Icon(icon, description, Modifier.size(22.dp), tint = Color.White) }
     }
 }
 
 @Composable
-fun GalleryScreen(media: List<Media>, initial: Int, close: () -> Unit) {
+fun GalleryScreen(media: List<Media>, initial: Int, onBackReady: ((() -> Unit) -> Unit)? = null, close: () -> Unit) {
     val model = LocalState.current
-    GalleryContent(media, initial, model.store.bool("key_use_liquid_glass_effect"), rememberMediaSaver(), close)
+    GalleryContent(media, initial, model.store.bool("key_use_liquid_glass_effect"), rememberMediaSaver(), onBackReady, close)
 }
 
 @Composable
-internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, save: (Media) -> Unit, close: () -> Unit) {
+internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, save: (Media) -> Unit, onBackReady: ((() -> Unit) -> Unit)? = null, close: () -> Unit) {
     if (media.isEmpty()) return
     val context = LocalContext.current; val registry = LocalGalleryOrigins.current
     val hidingOwner = remember { Any() }
@@ -141,6 +142,7 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
     val thumbnails = rememberPagerState(initial.coerceIn(media.indices)) { media.size }
     val mainDragging by pager.interactionSource.collectIsDraggedAsState(); val thumbDragging by thumbnails.interactionSource.collectIsDraggedAsState()
     var zoomed by remember { mutableStateOf(false) }; var controls by remember { mutableStateOf(true) }; var fullscreen by remember { mutableStateOf(false) }
+    val exitFullscreen = remember { arrayOfNulls<() -> Unit>(1) }
     var currentVideo by remember { mutableStateOf(media[initial].video) }
     val motion = remember(scope) { GalleryOpeningMotion(scope) }
     val returning = motion.returning
@@ -194,6 +196,7 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
             close()
         }
     }
+    SideEffect { onBackReady?.invoke { if (fullscreen) exitFullscreen[0]?.invoke() else dismiss() } }
     val placed = overlayBounds != null
     val opening = !openingFinished && !returning
     val pagingBlocked by rememberUpdatedState(opening || returning || !playerMounted)
@@ -254,7 +257,7 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
             snapshotFlow { source.currentPage to source.currentPageOffsetFraction }.collect { (page, offset) ->
                 val now = android.os.SystemClock.uptimeMillis()
                 if (owner == 2 && page != previous && now - lastTick >= 12L) {
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
                     lastTick = now
                 }
                 previous = page
@@ -268,7 +271,7 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
         }
     }
     Box(Modifier.fillMaxSize().onGloballyPositioned {
-        val bounds = Rect(it.positionInWindow(), it.size.toSize())
+        val bounds = Rect(it.positionOnScreen(), it.size.toSize())
         if (bounds.isEmpty) return@onGloballyPositioned
         if (overlayBounds == null && origin != null && preview != null && !origin.item.isVideo &&
             !origin.rect.isEmpty && origin.rect.overlaps(bounds) && !returning) {
@@ -284,8 +287,7 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
         canSwipeFlight = { pagingBlocked && media.size > 1 && !fullscreen && !zoomed && !media[pager.currentPage].isVideo },
         onHoldFlight = { motion.holdingGesture = it },
         onTapSource = {
-            if (motion.returning) motion.open() else dismiss()
-            haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+            if (motion.returning) { haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap); motion.open() } else dismiss()
         },
         onSwipeFlight = { dx ->
             val current = pendingFlightPage ?: pager.currentPage
@@ -317,7 +319,7 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
                 val item = media[index]
                 if (item.isVideo && pager.settledPage == index) CompositionLocalProvider(LocalBackdrop provides null) {
                     VideoPlayer(item, item.fromThreadPreview && media.count { it.isVideo } == 1,
-                        { controls = it }, { fullscreen = it }, { currentVideo = it }, { videoBottomHeight = it })
+                        { controls = it }, { fullscreen = it }, { currentVideo = it }, { videoBottomHeight = it }, { exitFullscreen[0] = it })
                 }
                 else {
                     var scale by remember { mutableFloatStateOf(1f) }; var offset by remember { mutableStateOf(Offset.Zero) }; var zoomJob by remember { mutableStateOf<Job?>(null) }
@@ -341,8 +343,8 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
                     LaunchedEffect(returning) { if (returning) zoomJob?.cancel() }
                     Box(Modifier.fillMaxSize().pointerInput(index, opening, returning) {
                         if (opening || returning) return@pointerInput
-                        detectTapGestures(onTap = { haptics.performHapticFeedback(HapticFeedbackType.ContextClick); controls = !currentControls }, onDoubleTap = { point ->
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        detectTapGestures(onTap = { controls = !currentControls }, onDoubleTap = { point ->
+                            haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
                             zoomJob?.cancel(); val before = scale; val target = when { before <= 1.05f -> 2.5f; before <= 3.6f -> 6f; else -> 1f }; val startOffset = offset
                             zoomJob = scope.launch { animate(before, target, animationSpec = tween(260, easing = CubicBezierEasing(.215f, .61f, .355f, 1f))) { value, _ ->
                                 if (pager.currentPage == index) {
@@ -432,9 +434,9 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
             if (playerMounted && !fullscreen && !(glass && (opening || returning))) {
                 if (media.size > 1) {
                     val thumbWidth = with(density) { (width * .16f).toDp() }
-                    HorizontalPager(thumbnails, flingBehavior = rememberGalleryThumbnailFling(thumbnails), userScrollEnabled = controls && !opening && !returning, pageSize = PageSize.Fixed(thumbWidth), contentPadding = PaddingValues(horizontal = with(density) { (width * .42f).toDp() }), modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = thumbBottom).fillMaxWidth().height(64.dp).graphicsLayer { alpha = thumbnailAlpha * motion.position }) { index ->
+                    HorizontalPager(thumbnails, flingBehavior = rememberGalleryThumbnailFling(thumbnails), overscrollEffect = null, userScrollEnabled = controls && !opening && !returning, pageSize = PageSize.Fixed(thumbWidth), contentPadding = PaddingValues(horizontal = with(density) { (width * .42f).toDp() }), modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = thumbBottom).fillMaxWidth().height(64.dp).graphicsLayer { alpha = thumbnailAlpha * motion.position }) { index ->
                         val item = media[index]; val selected = pager.currentPage == index
-                        Box(Modifier.fillMaxSize().padding(horizontal = 3.dp, vertical = 2.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(8.dp)).feedbackClickable(enabled = controls && !opening && !returning) { scrollOwner = 0; frozenThumbBottom = null; zoomed = false; pager.requestScrollToPage(index); thumbnails.requestScrollToPage(index) }) { AsyncImage(mediaRequest(context, item.thumbnail.ifEmpty { item.original }, 160), "第 ${index + 1} 项", Modifier.fillMaxSize().padding(2.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop); if (item.isVideo) Icon(Icons.Rounded.PlayCircleFilled, null, Modifier.align(Alignment.Center).size(28.dp), tint = Color.White); if (!selected) Box(Modifier.matchParentSize().padding(2.dp).clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = .5f))) }
+                        Box(Modifier.fillMaxSize().padding(horizontal = 3.dp, vertical = 2.dp).clip(RoundedCornerShape(8.dp)).border(2.dp, if (selected) Color.White else Color.Transparent, RoundedCornerShape(8.dp)).feedbackClickable(enabled = controls && !opening && !returning, type = HapticFeedbackType.KeyboardTap) { scrollOwner = 0; frozenThumbBottom = null; zoomed = false; pager.requestScrollToPage(index); thumbnails.requestScrollToPage(index) }) { AsyncImage(mediaRequest(context, item.thumbnail.ifEmpty { item.original }, 160), "第 ${index + 1} 项", Modifier.fillMaxSize().padding(2.dp).clip(RoundedCornerShape(6.dp)), contentScale = ContentScale.Crop); if (item.isVideo) Icon(Icons.Rounded.PlayCircleFilled, null, Modifier.align(Alignment.Center).size(28.dp), tint = Color.White); if (!selected) Box(Modifier.matchParentSize().padding(2.dp).clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = .5f))) }
                     }
                 }
                 if (controls && !opening && !returning) Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
