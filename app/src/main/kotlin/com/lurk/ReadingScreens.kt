@@ -161,6 +161,7 @@ fun ThreadCard(source: ThreadItem, recover: Boolean = false, filterRecommendatio
     val revision = model.revision
     val agreement = model.agrees[item.id] ?: (item.agreed to (item.agrees.toIntOrNull() ?: 0))
     val colors = MaterialTheme.colorScheme
+    if (item.author.id.isNotEmpty() && item.author.id in model.store.list("key_blocked_users")) return
     if (filterRecommendation && model.store.blocked(item, model.followedNames ?: emptySet())) return
     OriginalListCard(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)) {
         Column(Modifier.fillMaxWidth().feedbackClickable {
@@ -183,7 +184,7 @@ fun ThreadCard(source: ThreadItem, recover: Boolean = false, filterRecommendatio
             }
             Spacer(Modifier.height(8.dp)); OriginalDivider(thickness = .5.dp, color = colors.outlineVariant.copy(alpha = .08f)); Spacer(Modifier.height(4.dp))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                CardAction(Icons.Outlined.Share, "分享", colors.outline) { runCatching { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "${item.title}\nhttps://tieba.baidu.com/p/${item.id}"), "分享")) }.onFailure { model.message("无法打开分享菜单") } }
+                CardAction(Icons.Outlined.Share, "分享", colors.outline) { shareThread(context, item) { model.message("无法打开分享菜单") } }
                 CardAction(Icons.Rounded.ChatBubbleOutline, item.replies.takeUnless { it.isEmpty() || it == "0" } ?: "回复", colors.outline) { open(Route("thread", item.id, item.postId)) }
                 CardAction(if (agreement.first) Icons.Filled.Favorite else Icons.Rounded.FavoriteBorder, if (agreement.second > 0) "${agreement.second}" else "赞", if (agreement.first) Color(0xFFFF5252) else colors.outline) { model.toggleAgree(item) }
             }
@@ -209,11 +210,10 @@ fun <T> PagedContent(
     identity: Any?, load: suspend (Int) -> Pair<List<T>, Boolean>, modifier: Modifier = Modifier,
     targetId: String = "", bottomPadding: Int = 80, emptyMessage: String = "暂无内容", topPadding: Int = 0,
     emptyState: (@Composable (Boolean, String?, () -> Unit) -> Unit)? = null,
-    reloadKey: Any? = Unit,
+    reloadKey: Any? = Unit, listState: LazyListState = rememberLazyListState(),
     header: (@Composable LazyItemScope.() -> Unit)? = null, item: @Composable (T) -> Unit,
 ) {
     val scope = key(identity, reloadKey) { rememberCoroutineScope() }
-    val listState = rememberLazyListState()
     val state by pageState("items:$identity") { PageItems<T>() }
     var values by state::items
     var page by state::number

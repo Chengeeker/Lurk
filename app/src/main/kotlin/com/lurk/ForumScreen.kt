@@ -116,7 +116,7 @@ fun ForumScreen(name: String, back: () -> Unit) {
                     }
                 }
                 if (tabs.isNotEmpty()) Row(Modifier.padding(top = 8.dp).height(36.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    tabs.forEachIndexed { index, tab -> FilterChip(index == selectedTab, tapFeedback { selectedTab = index }, label = { Text(tab.s("tab_name", "text", "name"), fontSize = 12.5.sp, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) }, shape = RoundedCornerShape(18.dp), border = BorderStroke(.8.dp, if (selectedTab == index) colors.primary else colors.outlineVariant.copy(alpha = .25f)), colors = FilterChipDefaults.filterChipColors(containerColor = colors.surfaceContainerHighest.copy(alpha = .3f), selectedContainerColor = colors.primaryContainer)) }
+                    tabs.forEachIndexed { index, tab -> FilterChip(index == selectedTab, tapFeedback { selectedTab = index }, label = { Text(tab.s("tab_name", "text", "name"), fontSize = 12.5.sp, fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal) }, shape = RoundedCornerShape(8.dp), border = BorderStroke(.8.dp, if (selectedTab == index) colors.primary else colors.outlineVariant.copy(alpha = .25f)), colors = FilterChipDefaults.filterChipColors(containerColor = colors.surfaceContainerHighest.copy(alpha = .3f), selectedContainerColor = colors.primaryContainer)) }
                 }
                 if (rule.s("title").isNotEmpty()) {
                     Spacer(Modifier.height(6.dp)); ForumRuleBanner(rule.s("title")) { rules = true }
@@ -133,7 +133,7 @@ fun ForumScreen(name: String, back: () -> Unit) {
                     }
                 }
                 Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("按回复时间", "按发帖时间").forEachIndexed { index, title -> Surface(onClick = tapFeedback { sort = index }, shape = RoundedCornerShape(12.dp), color = if (sort == index) colors.primary.copy(alpha = .12f) else colors.surfaceContainerLow, border = BorderStroke(.8.dp, if (sort == index) colors.primary else colors.outlineVariant.copy(alpha = .25f))) { Text(title, Modifier.padding(horizontal = 10.dp, vertical = 5.dp), fontSize = 11.5.sp, fontWeight = if (sort == index) FontWeight.Bold else FontWeight.Normal, color = if (sort == index) colors.primary else colors.onSurfaceVariant) } }
+                    listOf("按回复时间", "按发帖时间").forEachIndexed { index, title -> Surface(onClick = tapFeedback { sort = index }, shape = RoundedCornerShape(8.dp), color = if (sort == index) colors.primary.copy(alpha = .12f) else colors.surfaceContainerLow, border = BorderStroke(.8.dp, if (sort == index) colors.primary else colors.outlineVariant.copy(alpha = .25f))) { Text(title, Modifier.padding(horizontal = 10.dp, vertical = 5.dp), fontSize = 11.5.sp, fontWeight = if (sort == index) FontWeight.Bold else FontWeight.Normal, color = if (sort == index) colors.primary else colors.onSurfaceVariant) } }
                 }
             }
         }) { Box(Modifier.padding(horizontal = 4.dp, vertical = 2.dp)) { ThreadCard(it) } }

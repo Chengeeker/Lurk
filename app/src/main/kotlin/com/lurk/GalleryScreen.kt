@@ -79,50 +79,13 @@ internal fun GalleryThumbnail(
 }
 
 @Composable
-internal fun GalleryIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, description: String, glass: Boolean, click: () -> Unit) {
-    if (!glass) {
-        PlainGalleryControl(description, true, tapFeedback(click, HapticFeedbackType.KeyboardTap)) { Icon(if (description == "关闭") Icons.AutoMirrored.Outlined.ArrowBack else icon, null, Modifier.size(22.dp), tint = Color.White) }
-        return
-    }
-    val source = LocalBackdrop.current
-    val context = LocalContext.current
-    val optics = if (glass && android.os.Build.VERSION.SDK_INT >= 33 && source != null) {
-        remember(context) { runCatching { GlassOptics(context) }.getOrNull() }
-    } else null
-    var down by remember { mutableStateOf(false) }
-    var drag by remember { mutableStateOf(Offset.Zero) }
-    val press by animateFloatAsState(if (glass && down) 1f else 0f, spring(stiffness = if (down) 631.65f else 503.55f, dampingRatio = if (down) .75f else .55f), label = "gallery glass press")
-    val resisted = drag / (1f + drag.getDistance() * .01f)
-    val stretch by animateOffsetAsState(if (glass && down) resisted * .8f else Offset.Zero, spring(stiffness = if (down) 1754.6f else 157.91f, dampingRatio = if (down) .8f else .5f), label = "gallery glass stretch")
-    Box(Modifier.size(48.dp).pointerInput(glass) {
-        if (glass) awaitEachGesture {
-            val first = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
-            down = true
-            try { do {
-                val event = awaitPointerEvent(PointerEventPass.Initial)
-                val change = event.changes.firstOrNull { it.id == first.id } ?: break
-                drag = (change.position - first.position) / density
-            } while (event.changes.any { it.pressed }) } finally { down = false; drag = Offset.Zero }
-        }
-    }.graphicsLayer {
-        val transform = galleryButtonTransform(stretch, press)
-        scaleX = transform[0]; scaleY = transform[1]; translationX = transform[2] * density; translationY = transform[3] * density
-    }, contentAlignment = Alignment.Center) {
-        if (glass && android.os.Build.VERSION.SDK_INT >= 33 && source != null && optics != null) {
-            ReferenceGalleryGlass(source, optics, press, Modifier.matchParentSize())
-        } else if (glass) Box(Modifier.matchParentSize().clip(CircleShape).backdrop(2f, material = LiquidMaterial(thickness = 32f, index = 1.24f, dispersion = .025f, tint = Color(0x66000000))))
-        IconButton(onClick = tapFeedback(click, HapticFeedbackType.KeyboardTap), modifier = Modifier.fillMaxSize()) { Icon(icon, description, Modifier.size(22.dp), tint = Color.White) }
-    }
-}
-
-@Composable
 fun GalleryScreen(media: List<Media>, initial: Int, onBackReady: ((() -> Unit) -> Unit)? = null, close: () -> Unit) {
     val model = LocalState.current
-    GalleryContent(media, initial, model.store.bool("key_use_liquid_glass_effect"), rememberMediaSaver(), onBackReady, close)
+    GalleryContent(media, initial, model.store.bool("key_use_liquid_glass_effect"), rememberMediaSaver(), onBackReady, model.store.bool("translucentNavigationGlass", false), close)
 }
 
 @Composable
-internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, save: (Media) -> Unit, onBackReady: ((() -> Unit) -> Unit)? = null, close: () -> Unit) {
+internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, save: (Media) -> Unit, onBackReady: ((() -> Unit) -> Unit)? = null, translucent: Boolean = false, close: () -> Unit) {
     if (media.isEmpty()) return
     val context = LocalContext.current; val registry = LocalGalleryOrigins.current
     val hidingOwner = remember { Any() }
@@ -440,13 +403,12 @@ internal fun GalleryContent(media: List<Media>, initial: Int, glass: Boolean, sa
                     }
                 }
                 if (controls && !opening && !returning) Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.width(96.dp)) { GalleryIcon(Icons.Rounded.ArrowBack, "关闭", glass, ::dismiss) }
+                    Box(Modifier.width(96.dp)) { GalleryIcon(Icons.Rounded.ArrowBack, "关闭", glass, translucent, ::dismiss) }
                     Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { Text("${pager.currentPage + 1} / ${media.size}", Modifier.background(Color.Black.copy(alpha = .45f), RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 6.dp), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
-                    Row(Modifier.width(96.dp), horizontalArrangement = Arrangement.End) { val item = media[pager.currentPage].let { if (it.isVideo) it.copy(video = currentVideo) else it }; GalleryIcon(Icons.Rounded.Download, if (!item.isVideo) "保存图片" else "保存视频", glass, { save(item) }) }
+                    Row(Modifier.width(96.dp), horizontalArrangement = Arrangement.End) { val item = media[pager.currentPage].let { if (it.isVideo) it.copy(video = currentVideo) else it }; GalleryIcon(Icons.Rounded.Download, if (!item.isVideo) "保存图片" else "保存视频", glass, translucent) { save(item) } }
                 }
             }
         }
         }
     }
 }
-

@@ -98,6 +98,11 @@ fun OriginalBlocks(back: () -> Unit) {
         Column(Modifier.verticalScroll(rememberPageScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) {
             PreferenceHeading("内容过滤与屏蔽")
             SettingsSectionCard {
+                val blockedUsers = model.store.list("key_blocked_users")
+                if (blockedUsers.isNotEmpty()) {
+                    Text("已屏蔽用户（点击解除）", Modifier.padding(horizontal = 16.dp, vertical = 10.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    blockedUsers.forEach { id -> SettingsRow("用户 $id", Icons.Outlined.PersonOff, "点击解除屏蔽") { model.setting("key_blocked_users", blockedUsers - id) } }
+                }
                 SettingsRow("屏蔽词管理", Icons.Outlined.FilterAlt, "黑名单 ${model.store.list("key_block_words_list").size} 个  |  白名单 ${model.store.list("key_white_words_list").size} 个", detailSize = 12.5.sp) { open(Route("settings", "words")) }
                 OriginalSwitch("彻底隐藏被屏蔽的内容", "key_hide_blocked_completely", Icons.Outlined.VisibilityOff, true)
                 OriginalSwitch("不看视频贴", "key_block_video_threads", Icons.Outlined.VideocamOff)

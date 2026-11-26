@@ -177,6 +177,13 @@ class ProtocolTest {
         listOf("is_sign_in", "is_sign", "is_signed").forEach { field -> assertTrue(Forum.parse(JSONObject().put(field, "1")).signed) }
         assertEquals(9, Forum.parse(JSONObject().put("user_level", "9")).level)
     }
+    @Test fun blockedUsersAreIncludedInBackup() {
+        assertTrue(BackupSchema.isList("key_blocked_users"))
+        val backup = JSONObject().put("app", "Lurk").put("version", "2.0").put("backup_mode", "safe")
+            .put("preferences", JSONObject().put("key_blocked_users", org.json.JSONArray().put("123")))
+        assertEquals("123", BackupSchema.validate(backup).getJSONArray("key_blocked_users").getString(0))
+    }
+
     @Test fun backupAllowlistExcludesCredentialsAndUnknownPerAccountKeys() {
         assertTrue(BackupSchema.allowed("key_bookmarks_list_123"))
         assertFalse(BackupSchema.allowed("key_bookmarks_list_../account"))

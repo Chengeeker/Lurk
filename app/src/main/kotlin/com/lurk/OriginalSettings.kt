@@ -173,8 +173,8 @@ fun OriginalAppearance(back: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             AppearanceSection("底部导航") { OriginalSwitch("使用悬浮底栏", "key_use_floating_nav_bar", Icons.Rounded.Dock, true) }
             Spacer(Modifier.height(16.dp))
-            AppearanceSection("显示效果") { OriginalSwitch("使用液态玻璃效果", "key_use_liquid_glass_effect", Icons.Rounded.BlurOn, subtitle = "用于图片画廊按钮；悬浮底栏需同时开启悬浮样式")
-                if(model.store.bool("key_use_liquid_glass_effect") && model.store.bool("key_use_floating_nav_bar", true)) NavigationGlassChoice(model.store.bool("translucentNavigationGlass", false), hapticsEnabled = model.store.bool("key_enable_haptics", true)) { model.setting("translucentNavigationGlass", it) }
+            AppearanceSection("显示效果") { OriginalSwitch("使用液态玻璃效果", "key_use_liquid_glass_effect", Icons.Rounded.BlurOn, subtitle = "用于帖子详情和图片画廊；导航底栏需同时开启悬浮样式")
+                if(model.store.bool("key_use_liquid_glass_effect")) NavigationGlassChoice(model.store.bool("translucentNavigationGlass", false), hapticsEnabled = model.store.bool("key_enable_haptics", true)) { model.setting("translucentNavigationGlass", it) }
             }
             Spacer(Modifier.height(16.dp))
             AppearanceSection("屏幕显示") { SettingsRow("屏幕帧率设置", Icons.Rounded.Speed) { open(Route("settings", "display")) } }

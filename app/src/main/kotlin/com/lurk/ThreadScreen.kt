@@ -6,13 +6,18 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -28,6 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -35,6 +44,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,11 +53,79 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.em
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.json.JSONArray
 import org.json.JSONObject
+
+internal fun shareThread(context: Context, item: ThreadItem, failed: () -> Unit) {
+    runCatching { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "${item.title}\nhttps://tieba.baidu.com/p/${item.id}"), "分享")) }.onFailure { failed() }
+}
+
+@Composable
+private fun ThreadBottomBar(agreement: Pair<Boolean, Int>, replies: String, modifier: Modifier, write: () -> Unit, like: () -> Unit, share: () -> Unit, comments: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val density = LocalDensity.current
+    val height = maxOf(44.dp, 29.dp + with(density) { 10.sp.toDp() })
+    val dark = colors.surface.luminance() < .5f
+    val glass = LocalBackdrop.current != null
+    val translucent = LocalState.current.store.bool("translucentNavigationGlass", false)
+    val promptText = "说点什么…"
+    val promptStyle = LocalTextStyle.current.copy(color = colors.onSurfaceVariant, fontSize = 13.5.sp)
+    val promptWidth = rememberTextMeasurer().measure(promptText, promptStyle, maxLines = 1).size.width
+    @Composable fun Capsule(modifier: Modifier, content: @Composable () -> Unit) {
+        Surface(modifier, shape = RoundedCornerShape(24.dp), color = if (glass) Color.Transparent else if (dark) Color(0xFF262626) else colors.surfaceContainerHighest.copy(alpha = .92f), border = if (glass) null else BorderStroke(.6.dp, colors.outlineVariant.copy(alpha = if (dark) .2f else .35f)), shadowElevation = if (glass) 0.dp else 2.dp) {
+            Box {
+                if (glass) Box(Modifier.matchParentSize().liquidBackdrop((if (dark) Color.Black else if (translucent) Color(0xFFF5F5F5) else Color.White).copy(alpha = if (!translucent) .75f else if (dark) .4f else .42f), blur = if (translucent && !dark) 6.dp else 2.dp))
+                content()
+            }
+        }
+    }
+    BoxWithConstraints(modifier.navigationBarsPadding().padding(start = 14.dp, end = 14.dp, top = 4.dp, bottom = 16.dp).fillMaxWidth()) {
+        val space = (minOf(maxWidth, 288.dp) - 10.dp).coerceAtLeast(0.dp)
+        val preferredPrompt = space * (9f / 21f)
+        val minActions = minOf(space - preferredPrompt, 144.dp)
+        val promptContent = with(LocalDensity.current) { promptWidth.toDp() } + 24.dp
+        val prompt = maxOf(preferredPrompt, promptContent + 12.dp).coerceAtMost(space - minActions)
+        val promptPadding = ((prompt - promptContent) / 2).coerceIn(4.dp, 14.dp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Capsule(Modifier.width(prompt).height(height)) {
+                Row(Modifier.fillMaxSize().feedbackClickable(onClick = write).padding(horizontal = promptPadding), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Edit, null, Modifier.size(16.dp), tint = colors.onSurfaceVariant)
+                    Spacer(Modifier.width(8.dp)); BasicText(promptText, Modifier.weight(1f), style = promptStyle, maxLines = 1, softWrap = false, autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = 13.5.sp, stepSize = .5.sp))
+                }
+            }
+            Capsule(Modifier.width(minOf(150.dp, space - prompt)).height(height)) {
+                Row(Modifier.fillMaxSize()) {
+                    ThreadBottomAction(if (agreement.first) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, "点赞", agreement.second.toString(), if (agreement.first) colors.primary else colors.onSurfaceVariant, like)
+                    ThreadBottomAction(Icons.Outlined.Share, "分享", "", colors.onSurfaceVariant, share)
+                    ThreadBottomAction(Icons.Rounded.ChatBubbleOutline, "回复", replies, colors.onSurfaceVariant, comments)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.ThreadBottomAction(icon: ImageVector, label: String, count: String, tint: Color, action: () -> Unit) {
+    Column(Modifier.weight(1f).fillMaxHeight().feedbackClickable(onClick = action).padding(horizontal = 3.dp, vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Icon(icon, label, Modifier.size(24.dp), tint = tint)
+        Spacer(Modifier.height(1.dp))
+        Text(count.ifEmpty { "0" }, color = tint, fontSize = 9.sp, lineHeight = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun ThreadActionTile(icon: ImageVector, label: String, enabled: Boolean = true, danger: Boolean = false, iconColor: Color = MaterialTheme.colorScheme.onSurfaceVariant, action: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(Modifier.feedbackClickable(enabled = enabled, onClick = action).fillMaxWidth().padding(horizontal = 16.dp).heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, Modifier.size(24.dp), tint = if (danger) colors.error else iconColor)
+        Spacer(Modifier.width(16.dp))
+        Text(label, Modifier.weight(1f).padding(vertical = 8.dp), fontSize = 15.sp, lineHeight = 20.25.sp, fontWeight = FontWeight.SemiBold, color = if (danger) colors.error else colors.onSurface)
+    }
+}
 
 fun resolvePostAuthors(data: JSONObject, key: String = "post_list"): List<JSONObject> {
     val users = data.rows("user_list").associateBy { it.s("id") }
@@ -143,6 +221,11 @@ internal fun SubReplyPictures(media: List<Media>, galleryScope: Any) {
 @Composable
 fun ThreadScreen(tid: String, targetPid: String, back: () -> Unit) {
     val model = LocalState.current; val open = LocalOpen.current; val colors = MaterialTheme.colorScheme
+    val context = LocalContext.current
+    val listState = rememberLazyListState(); val scope = rememberCoroutineScope()
+    val backdrop = if (model.store.bool("key_use_liquid_glass_effect")) rememberBackdrop() else null
+    var postHeight by remember { mutableIntStateOf(0) }
+    var menu by remember { mutableStateOf(false) }; var compose by remember { mutableStateOf(false) }; var copyBody by remember { mutableStateOf(false) }
     var lz by rememberSaveable { mutableStateOf(false) }; var reverse by rememberSaveable { mutableStateOf(false) }
     var refresh by rememberSaveable { mutableIntStateOf(0) }; var reply by rememberSaveable { mutableStateOf("") }
     var thread by pageState("thread") { JSONObject() }; var forum by pageState("forum") { JSONObject() }; var first by pageState("first") { JSONObject() }
@@ -167,10 +250,10 @@ fun ThreadScreen(tid: String, targetPid: String, back: () -> Unit) {
             }
         }, navigationIcon = { IconButton(onClick = tapFeedback(back)) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") } }, actions = {
             if (ownThread) IconButton(onClick = tapFeedback { delete = JSONObject(first.toString()).put("floor", 1) }) { Icon(Icons.Outlined.Delete, "删除我的贴子") }
-            IconButton(onClick = tapFeedback { model.bookmark(item) }) { Icon(if (bookmarked) Icons.Filled.Bookmark else Icons.Rounded.BookmarkBorder, if (bookmarked) "取消收藏" else "收藏贴子", tint = if (bookmarked) Color(0xFFFFC107) else colors.onSurfaceVariant) }
+            IconButton(onClick = tapFeedback { menu = true }) { Icon(Icons.Rounded.MoreVert, "更多") }
         }, colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent), expandedHeight = 56.dp, windowInsets = WindowInsets.statusBars)
     }) {
-        Box(Modifier.weight(1f)) { PagedContent(identity = "threadComments", reloadKey = "$lz:$reverse:$refresh", targetId = targetPid, bottomPadding = 32, load = { page ->
+        Box(Modifier.weight(1f)) { Box(Modifier.fillMaxSize().then(if (backdrop != null) Modifier.backdropSource(backdrop) else Modifier).background(colors.background)) { PagedContent(identity = "threadComments", reloadKey = "$lz:$reverse:$refresh", targetId = targetPid, bottomPadding = 100, listState = listState, load = { page ->
             val data = model.api.detail(tid, page, lz, reverse)
             thread = data.obj("thread"); forum = data.obj("forum")
             val posts = resolvePostAuthors(data)
@@ -181,7 +264,7 @@ fun ThreadScreen(tid: String, targetPid: String, back: () -> Unit) {
             count = if (page == 1) comments.size else count + comments.size
             comments to data.obj("page").flag("has_more")
         }, header = {
-            Card(Modifier.fillMaxWidth().padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 4.dp), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLow)) {
+            Card(Modifier.fillMaxWidth().onSizeChanged { postHeight = it.height }.padding(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 4.dp), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = colors.surfaceContainerLow)) {
                 Column(Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         OriginalAvatar(portraitUrl(author.portrait), "${author.name}的头像", Modifier.size(44.dp).clip(CircleShape).feedbackClickable { open(Route("profile", author.id)) }); Spacer(Modifier.width(12.dp))
@@ -194,7 +277,6 @@ fun ThreadScreen(tid: String, targetPid: String, back: () -> Unit) {
                     }
                     Spacer(Modifier.height(14.dp)); if (thread.s("title").isNotEmpty()) { Text(plainText(thread.s("title")), fontSize = 19.sp, lineHeight = 1.35.em, fontWeight = FontWeight.Bold); Spacer(Modifier.height(12.dp)) }
                     PostContent(parseContent(first.opt("content")), author.name, true)
-                    Spacer(Modifier.height(12.dp)); Row(Modifier.align(Alignment.End).clip(RoundedCornerShape(16.dp)).feedbackClickable { model.toggleAgree(item) }.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) { Icon(if (agreement.first) Icons.Filled.Favorite else Icons.Rounded.FavoriteBorder, "点赞", Modifier.size(18.dp), tint = if (agreement.first) Color(0xFFFF5252) else colors.outline); Spacer(Modifier.width(4.dp)); Text(if (agreement.second > 0) "${agreement.second}" else "赞", fontSize = 12.5.sp, color = if (agreement.first) Color(0xFFFF5252) else colors.outline) }
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -203,9 +285,33 @@ fun ThreadScreen(tid: String, targetPid: String, back: () -> Unit) {
                 Spacer(Modifier.weight(1f)); Text("正序", Modifier.height(48.dp).feedbackClickable { reverse = false }.padding(horizontal = 4.dp).wrapContentHeight(Alignment.CenterVertically), fontSize = 13.5.sp, fontWeight = if (!reverse) FontWeight.Bold else FontWeight.Normal, color = if (!reverse) colors.onSurface else colors.outline); Text("|", Modifier.padding(horizontal = 8.dp), fontSize = 13.sp, color = colors.outline.copy(alpha = .3f)); Text("倒序", Modifier.height(48.dp).feedbackClickable { reverse = true }.padding(horizontal = 4.dp).wrapContentHeight(Alignment.CenterVertically), fontSize = 13.5.sp, fontWeight = if (reverse) FontWeight.Bold else FontWeight.Normal, color = if (reverse) colors.onSurface else colors.outline)
             }
         }) { post -> CommentFloor(tid, post, author.id, previewImages, previewLanes, { floor = post }, { actions = post }) } }
-        ReplyInput(reply, { reply = it }, "说点什么吧...") {
-            if (reply.isNotBlank()) model.action { api, _ -> api.reply(tid, forum.s("id"), forum.s("name"), reply.trim()); reply = ""; refresh++; model.message("回复成功") }
+            CompositionLocalProvider(LocalBackdrop provides backdrop) {
+            ThreadBottomBar(agreement, item.replies, Modifier.align(Alignment.BottomCenter), { compose = true }, { model.toggleAgree(item) }, {
+                shareThread(context, item) { model.message("无法打开分享菜单") }
+            }, { scope.launch { listState.animateScrollToItem(0, postHeight) } })
+            }
         }
+    }
+    if (compose) ThreadCommentEditor(tid, reply, { reply = it }, { compose = false }) { submitted ->
+        model.action { api, _ -> api.reply(tid, forum.s("id"), forum.s("name"), submitted); reply = ""; compose = false; refresh++; model.message("回复成功") }
+    }
+    if (menu) ModalBottomSheet(onDismissRequest = { menu = false }, containerColor = colors.surfaceContainerLow, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
+        fun copy(label: String, value: String) { (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText(label, value)); model.message("已复制到剪贴板"); menu = false }
+        ThreadActionTile(Icons.Rounded.ContentCopy, "复制帖子正文", enabled = first.length() > 0) { menu = false; copyBody = true }
+        ThreadActionTile(Icons.Rounded.Link, "复制帖子链接") { copy("链接", "https://tieba.baidu.com/p/$tid") }
+        ThreadActionTile(if (bookmarked) Icons.Filled.Bookmark else Icons.Rounded.BookmarkBorder, if (bookmarked) "取消收藏" else "收藏帖子", iconColor = if (bookmarked) Color(0xFFFF8200) else colors.onSurfaceVariant) { menu = false; model.bookmark(item) }
+        ThreadActionTile(Icons.Rounded.PersonOutline, "查看用户主页", enabled = author.id.isNotBlank() && author.id != "0") { menu = false; open(Route("profile", author.id)) }
+        if (!ownThread) ThreadActionTile(Icons.Outlined.Block, "屏蔽该用户", enabled = author.id.isNotBlank() && author.id != "0", danger = true) { menu = false; model.setting("key_blocked_users", (model.store.list("key_blocked_users") + author.id).distinct()); model.message("已屏蔽该用户") }
+        Spacer(Modifier.navigationBarsPadding())
+    }
+    if (copyBody) {
+        var selecting by remember { mutableStateOf(false) }
+        val body = remember(first) { parseContent(first.opt("content")).joinToString("") { it.text } }
+        AlertDialog(onDismissRequest = { copyBody = false }, title = { Text(if (selecting) "自由复制" else "复制帖子正文") }, text = {
+            if (selecting) SelectionContainer(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) { Text(body) }
+            else Text("自由复制时可长按选择要复制的文字。")
+        }, dismissButton = if (!selecting) { { TextButton(onClick = tapFeedback { selecting = true }) { Text("自由复制") } } } else null,
+            confirmButton = { TextButton(onClick = tapFeedback { if (!selecting) { (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("正文", body)); model.message("已复制到剪贴板") }; copyBody = false }) { Text(if (selecting) "关闭" else "复制全文") } })
     }
     actions?.let { post -> PostActions(post, ownsPost(model.account, Author.parse(post.obj("author"))) || ownThread, false, { actions = null }, { floor = post }, { delete = post }) }
     floor?.let { post -> FloorSheet(tid, forum, post, ownThread) { floor = null } }
