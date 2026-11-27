@@ -10,9 +10,9 @@ android {
         applicationId = "com.lurk"
         minSdk = 24
         targetSdk = 36
-        versionCode = 109
+        versionCode = 112
         // Resume normal patch versions after the approved Compose release.
-        versionName = "3.1.1"
+        versionName = "3.1.4"
         ndk { abiFilters += "arm64-v8a" }
     }
     compileOptions {
@@ -23,10 +23,22 @@ android {
     buildFeatures { compose = true; buildConfig = true }
     sourceSets.getByName("main").assets.srcDir("../third_party")
     testOptions { unitTests.isIncludeAndroidResources = true }
+    val lurkBksFile = System.getenv("LURK_BKS_FILE")?.let(::file)
+    val lurkBksStorePassword = System.getenv("LURK_BKS_STORE_PASSWORD")
+    val lurkBksStoreType = System.getenv("LURK_BKS_STORE_TYPE") ?: "BKS"
+    val lurkBksKeyAlias = System.getenv("LURK_BKS_KEY_ALIAS")
+    val lurkBksKeyPassword = System.getenv("LURK_BKS_KEY_PASSWORD")
+    val useLurkBks = lurkBksFile != null && lurkBksStorePassword != null && lurkBksKeyAlias != null && lurkBksKeyPassword != null
+    if (useLurkBks) signingConfigs.create("lurkBks") {
+        storeFile = lurkBksFile
+        storeType = lurkBksStoreType
+        storePassword = lurkBksStorePassword
+        keyAlias = lurkBksKeyAlias
+        keyPassword = lurkBksKeyPassword
+    }
     buildTypes {
         release {
-            // Preserve the certificate used by the existing local release.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (useLurkBks) "lurkBks" else "debug")
             isMinifyEnabled = false
         }
     }

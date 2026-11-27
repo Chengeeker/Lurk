@@ -56,7 +56,7 @@ internal fun Modifier.videoTapInput(key: Any, onTap: () -> Unit, onDoubleTap: (F
         val down = awaitFirstDown()
         down.consume()
         val up = waitForUpOrCancellation()
-        if (up == null || (up.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+        if (up == null || up.uptimeMillis - down.uptimeMillis >= viewConfiguration.longPressTimeoutMillis || (up.position - down.position).getDistance() > viewConfiguration.touchSlop) {
             previousTap = null
             return@awaitEachGesture
         }
@@ -88,6 +88,7 @@ fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolea
     var retry by remember { mutableIntStateOf(0) }
     val playbackErrors = remember(player) { Channel<Long>(Channel.CONFLATED) }
     var speed by remember { mutableFloatStateOf(1f) }; var fast by remember { mutableStateOf(false) }; var speedSheet by remember { mutableStateOf(false) }
+    var boostLocked by remember { mutableStateOf(false) }; val latestBoostLocked by rememberUpdatedState(boostLocked); var speedCue by remember { mutableStateOf("") }; var lockCue by remember { mutableStateOf("") }
     var controls by remember { mutableStateOf(true) }; var playing by remember { mutableStateOf(false) }; var fullscreen by remember { mutableStateOf(false) }
     var ready by remember { mutableStateOf(false) }; var buffering by remember { mutableStateOf(true) }; var failure by remember { mutableStateOf(false) }
     var position by remember { mutableLongStateOf(0) }; var duration by remember { mutableLongStateOf(0) }; var interaction by remember { mutableIntStateOf(0) }
@@ -147,6 +148,8 @@ fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolea
     val scrubbing = scrubPosition != null
     LaunchedEffect(playing, controls, interaction, speedSheet, qualitySheet, scrubbing) { if (playing && controls && !speedSheet && !qualitySheet && !scrubbing) { delay(4000); controls = false } }
     LaunchedEffect(hudEpoch) { if (hud.isNotEmpty()) { delay(900); hud = "" } }
+    LaunchedEffect(speedCue) { if (speedCue.isNotEmpty()) { delay(900); speedCue = "" } }
+    LaunchedEffect(lockCue) { if (lockCue.isNotEmpty()) { delay(900); lockCue = "" } }
     LaunchedEffect(player) { while (true) { position = player.currentPosition; duration = player.duration.coerceAtLeast(0); delay(250) } }
     val haptics = LocalHapticFeedback.current
     var controlsBeforeTap by remember { mutableStateOf(true) }
@@ -172,27 +175,45 @@ fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolea
                 val down = awaitFirstDown(requireUnconsumed = false); val start = down.position
                 val initialBrightness = brightness; val initialVolume = volume
                 var dragging = false; var job: Job? = null
-                if (start.x < size.width * .45f || start.x > size.width * .55f) job = scope.launch { delay(250); fast = true; player.setPlaybackSpeed(2f); haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
+                var lockOnRelease = false; var unlockOnRelease = false
+                job = scope.launch { delay(250); fast = true; lockCue = ""; speedCue = if (latestBoostLocked) "2.0X 倍速已锁定" else "2.0X 快进中"; hud = ""; player.setPlaybackSpeed(2f); haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
                 try {
                     do {
                         val event = awaitPointerEvent(); val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                        if (event.changes.count { it.pressed } > 1 || change.isConsumed) break
+                        if (event.changes.count { it.pressed } > 1) break
                         val diff = change.position - start
                         if (diff.getDistance() > viewConfiguration.touchSlop) job?.cancel()
-                        if (!dragging && abs(diff.y) > viewConfiguration.touchSlop && abs(diff.y) > abs(diff.x)) { dragging = true; job?.cancel(); fast = false; player.setPlaybackSpeed(speed) }
-                        if (dragging) {
+                        if (fast) {
+                            val threshold = 48.dp.toPx()
+                            lockOnRelease = !latestBoostLocked && diff.y >= threshold
+                            unlockOnRelease = latestBoostLocked && diff.y <= -threshold
+                            lockCue = when { lockOnRelease -> "松开锁定倍速"; unlockOnRelease -> "松开恢复原速"; else -> "" }
+                            change.consume()
+                        } else if (!dragging && abs(diff.y) > viewConfiguration.touchSlop && abs(diff.y) > abs(diff.x)) { dragging = true; job?.cancel() }
+                        if (dragging && !fast) {
                             change.consume(); val delta = -diff.y / (size.height * .65f)
                             if (start.x < size.width / 2) { brightness = (initialBrightness + delta).coerceIn(.01f, 1f); window?.let { it.attributes = it.attributes.apply { screenBrightness = brightness } }; hudType = "brightness"; hud = "亮度 ${(brightness * 100).toInt()}%" }
                             else { volume = (initialVolume + delta).coerceIn(0f, 1f); player.volume = volume; hudType = "volume"; hud = "音量 ${(volume * 100).toInt()}%" }
                             hudEpoch++
-                        } else if (fast) change.consume()
+                        }
                     } while (event.changes.any { it.pressed })
-                } finally { job?.cancel(); if (fast) { fast = false; player.setPlaybackSpeed(speed) }; hudEpoch++ }
+                } finally {
+                    job?.cancel()
+                    if (fast) {
+                        if (lockOnRelease) boostLocked = true
+                        if (unlockOnRelease) boostLocked = false
+                        fast = false
+                        player.setPlaybackSpeed(if (lockOnRelease || latestBoostLocked && !unlockOnRelease) 2f else speed)
+                        speedCue = ""
+                        lockCue = when { lockOnRelease -> "2.0X 倍速已锁定"; unlockOnRelease -> "已恢复原速"; else -> "" }
+                    }
+                    hudEpoch++
+                }
             }
         })
         if (buffering && !failure) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White.copy(alpha = .7f))
         if (failure) Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Rounded.ErrorOutline, null, Modifier.size(48.dp), tint = Color.White.copy(alpha = .7f)); Spacer(Modifier.height(12.dp)); Text("视频加载失败或链接已失效", color = Color.White.copy(alpha = .7f)); Spacer(Modifier.height(16.dp)); FilledTonalButton(onClick = tapFeedback { retry++ }) { Text("重试") } }
-        if (fast) Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 50.dp).background(Color.Black.copy(alpha = .87f), RoundedCornerShape(20.dp)).border(.8.dp, Color.White.copy(alpha = .24f), RoundedCornerShape(20.dp)).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.FastForward, null, Modifier.size(20.dp), tint = Color(0xFFFFD740)); Spacer(Modifier.width(8.dp)); Text("2.0X 倍速快进中", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp) }
+        VideoHintOverlay(player, speedCue.isNotEmpty() || lockCue.isNotEmpty(), contentKey = lockCue.ifEmpty { speedCue }) { Row(Modifier.background(Color.Black.copy(alpha = .87f), RoundedCornerShape(10.dp)).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Rounded.FastForward, null, Modifier.size(20.dp), tint = Color.White); Spacer(Modifier.width(8.dp)); Text(lockCue.ifEmpty { speedCue.ifEmpty { "2.0X 倍速快进中" } }, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold) } }
         if (controls && fullscreen) ReviewVideoTop(Modifier.align(Alignment.TopCenter), media.title, media.folderName,
             fullscreen = true, close = ::toggleOrientation) {
             ReviewVideoAction("download", "保存视频") { save(media.copy(video = effective)) }
@@ -206,11 +227,11 @@ fun VideoPlayer(media: Media, allowSoleDetailVideo: Boolean, onControls: (Boolea
                 scrubPosition?.let { target -> player.seekTo(target.toLong()); position = target.toLong() }
                 scrubPosition = null; interaction++
             })
-        if (hud.isNotEmpty()) Column(Modifier.align(Alignment.Center).widthIn(min = 150.dp).background(Color.Black.copy(alpha = .82f), RoundedCornerShape(20.dp)).border(1.dp, Color.White.copy(alpha = .24f), RoundedCornerShape(20.dp)).padding(horizontal = 18.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        if (hud.isNotEmpty()) VideoHintOverlay(player, true, speed = false) { Column(Modifier.widthIn(min = 150.dp).background(Color.Black.copy(alpha = .87f), RoundedCornerShape(10.dp)).padding(horizontal = 16.dp, vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(when (hudType) { "brightness" -> Icons.Rounded.Brightness6; "volume" -> Icons.Rounded.VolumeUp; else -> if (hud.startsWith("-")) Icons.Rounded.Replay10 else Icons.Rounded.Forward10 }, null, Modifier.size(28.dp), tint = Color.White)
             Spacer(Modifier.height(8.dp)); Text(hud, color = Color.White, fontSize = 13.sp)
             if (hudType != "seek") { Spacer(Modifier.height(10.dp)); Canvas(Modifier.width(120.dp).height(3.dp)) { drawRect(Color.White.copy(alpha = .24f)); drawRect(Color.White, size = size.copy(width = size.width * if (hudType == "brightness") brightness else volume)) } }
-        }
+        } }
     }
     if (speedSheet) ReviewVideoChoices("播放倍速", standardVideoSpeeds.map { "${it}X" }, "${speed}X", { speedSheet = false; interaction++ }) {
         speed = it.removeSuffix("X").toFloat(); player.setPlaybackSpeed(speed)
